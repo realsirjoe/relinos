@@ -3,6 +3,7 @@
 # BEFORE YOU RUN:
 # Put all your wireguard files into /etc/wireguard/proxy-xxx.conf
 # xxx replace x with a nr e.g. 001, 002, 003, ...
+# You have to run this script on every reboot, or add it as a crontab
 ########################################################
 # Auto Configures for each wireguard proxy-xxx.conf file 
 #    - tinyproxy-xxx.conf tinyproxy-xxx.service and user
