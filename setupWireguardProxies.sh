@@ -6,6 +6,7 @@
 # You have to run this script on every reboot, or add it as a crontab
 ########################################################
 # Auto Configures for each wireguard proxy-xxx.conf file 
+#    - removes DNS and adds Table=off to wireguard
 #    - tinyproxy-xxx.conf tinyproxy-xxx.service and user
 #    - starts wireguard interface and tinyproxy service
 #    - sets routing tables
@@ -17,11 +18,27 @@ if [ "$EUID" -ne 0 ]; then
     echo "Must be run as sudo"; exit 1
 fi
 
+echo "Empty squid.conf and add boilerplate"
+tee /usr/local/squid/etc/squid.conf > /dev/null <<EOF
+cache deny all
+access_log none
+http_access allow all
+coredump_dir /usr/local/squid/var/cache/squid
+EOF
+
 for conf in /etc/wireguard/proxy-*.conf; do
     filename=$(basename "$conf")
     interface=${filename%.conf}
     nr=${interface#proxy-}
     port="$((18080 + 10#$nr - 1))"
+    mark=$((0x80 + 10#$nr - 1))
+    mark=$(printf '0x%x' "$mark")
+
+    echo "Editing wireguard config"
+    # Adds 'Table = off' so routing tables don't get configured on startup
+    grep -qx "^Table[\t ]*=[\t ]*off$" "$conf" || sed -i '/^\[Interface\]/a Table = off' "$conf"
+    # Remove DNS because it is globally set
+    sed -i '/^DNS.*/d' "$conf"
 
     # savety checks
     grep -q '^DNS' "$conf" && { echo "Remove DNS line from $conf"; exit 1; }
@@ -30,59 +47,39 @@ for conf in /etc/wireguard/proxy-*.conf; do
     echo "Setting up wireguard $interface"
     wg show "$interface" &> /dev/null || wg-quick up "$interface" 
 
-    echo "Setting up tinyproxy-$nr"
-    id tinyproxy-$nr &> /dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin tinyproxy-$nr
-    uid=$(id -u "tinyproxy-$nr")
+    echo "Configuring squid.conf"
+    tee -a /usr/local/squid/etc/squid.conf > /dev/null <<EOF
 
-    echo "Configuring tinyproxy-$nr.conf (Port $port)"
-    tee "/etc/tinyproxy/tinyproxy-$nr.conf" > /dev/null <<EOF
-User tinyproxy-$nr
-Group tinyproxy-$nr
-Port $port
-
-Timeout 600
-DefaultErrorFile "/usr/share/tinyproxy/default.html"
-LogLevel Info
-MaxClients 200
-
-MinSpareServers 20 
-MaxSpareServers 100 
-StartServers 30 
-
-MaxRequestsPerChild 0
-
-Allow 127.0.0.1
-Allow 172.17.0.0/16
-
-ViaProxyName "tinyproxy"
-
-ConnectPort 443
-ConnectPort 563
+http_port $port name=wg$nr
+acl wg$nr myportname wg$nr
+tcp_outgoing_mark $mark wg$nr
 EOF
 
-    echo "Configuring tinyproxy-$nr.service"
-    tee "/etc/systemd/system/tinyproxy-$nr.service" > /dev/null <<EOF
+    table=$((100 + 10#$nr - 1))
+    echo "Setting routes for proxy $nr"
+    ip rule add fwmark "$mark" table "$table"
+    ip route replace default dev proxy-$nr table "$table"
+    ip route replace 172.17.0.0/16 dev docker0 table "$table"
+done
+
+tee /etc/systemd/system/squid.service > /dev/null << EOF
 [Unit]
-Description=Tinyproxy $nr
+Description=Squid Proxy
 After=network.target
 
 [Service]
-Type=simple
-User=tinyproxy-$nr
-ExecStart=/usr/bin/tinyproxy -d -c /etc/tinyproxy/tinyproxy-$nr.conf
+Type=forking
+ExecStart=/usr/local/squid/sbin/squid
+ExecReload=/usr/local/squid/sbin/squid -k reconfigure
+ExecStop=/usr/local/squid/sbin/squid -k shutdown
+PIDFile=/usr/local/squid/var/run/squid.pid
 Restart=on-failure
-RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
-    systemctl daemon-reload
-    systemctl enable --now "tinyproxy-$nr.service"
 
-    table=$((100 + 10#$nr - 1))
-    echo "Setting routes for proxy $nr → UID $uid Routing Table $table"
-
-    ip rule add uidrange "$uid-$uid" table "$table"
-    ip route replace default dev "proxy-$nr" table "$table"
-    ip route replace 172.17.0.0/16 dev docker0 table "$table"
-done
+echo "starting squid"
+systemctl daemon-reload
+systemctl restart squid
+echo "DONE"
