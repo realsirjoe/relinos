@@ -24,6 +24,7 @@ cache deny all
 access_log none
 http_access allow all
 coredump_dir /usr/local/squid/var/cache/squid
+workers 20
 EOF
 
 for conf in /etc/wireguard/proxy-*.conf; do
@@ -64,15 +65,15 @@ done
 
 tee /etc/systemd/system/squid.service > /dev/null << EOF
 [Unit]
-Description=Squid Proxy
-After=network.target
+Description=Squid
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-Type=forking
-ExecStart=/usr/local/squid/sbin/squid
-ExecReload=/usr/local/squid/sbin/squid -k reconfigure
-ExecStop=/usr/local/squid/sbin/squid -k shutdown
-PIDFile=/usr/local/squid/var/run/squid.pid
+Type=simple
+ExecStart=/usr/local/squid/sbin/squid -N -d 1
+User=root
+WorkingDirectory=/usr/local/squid
 Restart=on-failure
 
 [Install]
