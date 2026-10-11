@@ -1,0 +1,35 @@
+{
+    "results": {
+        "$xpath": "//*[contains(@class, 'Ww4FFb')]",
+        "$list": true,
+        "domain": {
+            "$xpath": ".//*[contains(@class, 'CA5RN')]//cite/text()",
+            "$extract": "(?:https?://)?(.*)"
+        },
+        "url": {
+            "$xpath": ".//*[contains(@class, 'zReHs')]/@href",
+            "$pattern": "(https?://)?.*"
+        },
+        "title": {
+            "$xpath": ".//h3"
+        },
+        "description": {
+            "$xpath": ".//*[contains(@class, 'VwiC3b yXK7lf p4wth r025kc Hdw6tb')]"
+        }
+    },
+    "people_also_search_for": {
+        "$xpath": "//*[@class='ngTNl ggLgoc']",
+        "$type": "list"
+    },
+    "questions": {
+        "$xpath": "//*[contains(@class, 'wQiwMc')]",
+        "$type": "list",
+        "question": {
+            "$xpath": ".//*[contains(@class, 'CSkcDe')]"
+        },
+        "answer": {
+            "$xpath": ".//*[contains(@class, 'hICk5e')]",
+            "$transform": "markdown"
+        }
+    }
+}

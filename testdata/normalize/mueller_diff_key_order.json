@@ -1,0 +1,69 @@
+{
+    "SearchSummary": {
+        "query": "Startseite",
+        "headline": "300 Treffer für deine Suche nach „playmobile“",
+        "visible_result_range": "Artikel 1 – 60 von 300"
+    },
+    "Products": [
+        {
+            "title": "PLAYMOBIL 72112 - Knights - Große Löwenritterburg",
+            "image_url": null,
+            "badge": "Neu",
+            "price": "139,00 €",
+            "unit": "/ 1 Stk.",
+            "uvp": null,
+            "availability": [
+                "Online verfügbar",
+                "In die Filiale lieferbar"
+            ]
+        },
+        {
+            "title": "PLAYMOBIL 72005 JUNIOR Sand-Bäckerei",
+            "image_url": null,
+            "badge": "Sale",
+            "price": "7,99 €",
+            "uvp": null,
+            "unit": "/ 1 Stk.",
+            "availability": [
+                "Online verfügbar",
+                "In die Filiale lieferbar"
+            ]
+        },
+        {
+            "title": "PLAYMOBIL 71952 - Horses of Waterfall - Adventskalender: Weihnachtsbacken im Reitercafé",
+            "image_url": null,
+            "badge": null,
+            "price": "29,99 €",
+            "availability": [
+                "Online verfügbar",
+                "In die Filiale lieferbar"
+            ],
+            "unit": "/ 1 Stk.",
+            "uvp": null
+        },
+        {
+            "title": "PLAYMOBIL 71847 - Princess Magic - Prinzessinnen-Schlafzimmer mit Ankleide",
+            "image_url": null,
+            "badge": null,
+            "price": "29,99 €",
+            "unit": "/ 1 Stk.",
+            "uvp": null,
+            "availability": [
+                "Online verfügbar",
+                "In die Filiale lieferbar"
+            ]
+        },
+        {
+            "title": "PLAYMOBIL 71615 - City Life - Modernes Krankenhaus",
+            "image_url": null,
+            "badge": null,
+            "price": "99,95 €",
+            "unit": "/ 1 Stk.",
+            "uvp": null,
+            "availability": [
+                "Online verfügbar",
+                "In die Filiale lieferbar"
+            ]
+        }
+    ]
+}

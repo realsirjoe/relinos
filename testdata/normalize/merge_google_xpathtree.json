@@ -1,0 +1,107 @@
+{
+    "key": "root",
+    "value": "/html",
+    "children": [
+        {
+            "key": "query",
+            "value": "",
+            "children": []
+        },
+        {
+            "key": "result_count",
+            "value": "./body/div/div/div/div/div/div/div/div/div/div[@class='XhWQv qd6zO ApHyTb']",
+            "children": []
+        },
+        {
+            "key": "search_time",
+            "value": "",
+            "children": []
+        },
+        {
+            "key": "results",
+            "value": "./body/div/div/div/div/div/div/div/div/div[contains(@class, 'MjjYud')]",
+            "children": [
+                {
+                    "key": "[]",
+                    "value": "./body/div/div/div/div/div/div/div/div/div[contains(@class, 'MjjYud')]",
+                    "children": [
+                        {
+                            "key": "position",
+                            "value": "",
+                            "children": []
+                        },
+                        {
+                            "key": "title",
+                            "value": "./div/div/div/div/div/div/span/a/h3[contains(@class, 'LC20lb MBeuO DKV0Md')]",
+                            "children": []
+                        },
+                        {
+                            "key": "url",
+                            "value": "./div/div/div/div/div/div/span/a/div/div/div/div/cite[contains(@class, 'qLRx3b tjvcx GvPZzd cHaqb')]",
+                            "children": []
+                        },
+                        {
+                            "key": "site",
+                            "value": "./div/div/div/div/div/div/span/a/div/div/div/div/span[contains(@class, 'VuuXrf')]",
+                            "children": []
+                        },
+                        {
+                            "key": "snippet",
+                            "value": "./div/div/div/div/div[contains(@class, 'VwiC3b yXK7lf p4wth r025kc Hdw6tb')]",
+                            "children": []
+                        },
+                        {
+                            "key": "images",
+                            "value": "",
+                            "children": [
+                                {
+                                    "key": "[]",
+                                    "value": "",
+                                    "children": []
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "people_also_ask",
+            "value": "./body/div/div/div/div/div/div/div/div/div/div/div/div/div/div/div",
+            "children": [
+                {
+                    "key": "[]",
+                    "value": "./body/div/div/div/div/div/div/div/div/div/div/div/div/div/div/div",
+                    "children": [
+                        {
+                            "key": "question",
+                            "value": "./div/div/div/div/div/div/span/span[contains(@class, 'CSkcDe')]",
+                            "children": []
+                        },
+                        {
+                            "key": "answer",
+                            "value": "./div/div/div/div/div/div/div/div/div/span/span[contains(@class, 'hgKElc pOOWX')]",
+                            "children": []
+                        },
+                        {
+                            "key": "source_url",
+                            "value": "",
+                            "children": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "related_searches",
+            "value": "./body/div/div/div/div/div/div/div/div/div/div/div/div/div/div/div/div/div/a/div/div/div/div/div/span[contains(@class, 'dg6jd JGD2rd')]",
+            "children": [
+                {
+                    "key": "[]",
+                    "value": "./body/div/div/div/div/div/div/div/div/div/div/div/div/div/div/div/div/div/a/div/div/div/div/div/span[contains(@class, 'dg6jd JGD2rd')]",
+                    "children": []
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,13 @@
+[tool.mypy]
+strict = true
+
+[tool.setuptools.packages.find]
+include = ["relinos*"]
+
+[tool.setuptools.package-data]
+scraping_api = ["data/*"]
+
+[project]
+name = "relinos"
+version = "0.1.0"
+description = "Self hosted scraping api"
