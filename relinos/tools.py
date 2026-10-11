@@ -10,6 +10,7 @@ import logging
 import hashlib
 import types
 import requests
+import socket
 
 logger = logging.getLogger(__name__)
 
@@ -472,3 +473,10 @@ def parseFloat(value: str) -> tuple[float, Exception|None]:
 def getPublicIP() -> str:
     ip = requests.get('https://api.ipify.org').content.decode('utf8')
     return ip
+
+def getPrivateIP() -> str:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip = s.getsockname()[0]
+    s.close()
+    return str(ip)

@@ -132,7 +132,7 @@ def parseHtml(htmlStr: str, xpathSchema: str, resolvingUrl: str="") -> tuple[Jso
 
 ################### Scoring ######################
 
-JsonType = None|bool|int|float|str|list["JsonType"]|dict[str,"JsonType"]
+type JsonType = None|bool|int|float|str|list["JsonType"]|dict[str,"JsonType"]
 def flattenJson(data: JsonType) -> list[tuple[str, None|bool|int|float|str]]:
     values = []
     def walk(data: JsonType, path: str = "") -> None:
