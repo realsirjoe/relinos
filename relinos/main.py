@@ -32,10 +32,10 @@ def parseActions(modelActions: list[ActionModel]|list[tuple[str, str, str]]) -> 
     for a in modelActions:
         if isinstance(a, tuple):
             action = Action(a[0], a[1], a[2])
-        if isinstance(a, ActionModel):
+        elif isinstance(a, ActionModel):
             action = Action(a.typ, a.v0, a.v1)
         else:
-            raise Exception(f"Could not parse actions, invalid type {modelActions}")
+            raise Exception(f"Could not parse actions, invalid type {type(modelActions)}")
         actions.append(action)
 
     return actions
