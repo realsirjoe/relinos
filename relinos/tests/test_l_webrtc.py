@@ -2,6 +2,7 @@ import unittest
 import requests
 from lxml import html
 
+from relinos.config import serverName
 from relinos.parse import JsonType
 from relinos.tools import getPublicIP
 
@@ -18,7 +19,7 @@ class TestWebRTC(unittest.TestCase):
             "format": "html",
             "actions": [("actionWaitForAndSelect", "//*[@id='rtc-leak' and @class='']", "20")]
         }
-        htmlStr = requests.get("http://0.0.0.0:8032/get", json=reqData).text
+        htmlStr = requests.get(serverName + "/get", json=reqData).text
         tree = html.fromstring(htmlStr)
 
         # webRTC Support Detection

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import requests
 
+from relinos.config import serverName
 from relinos.parse import JsonType
 
 class TestDatadome(unittest.TestCase):
@@ -16,7 +17,7 @@ class TestDatadome(unittest.TestCase):
             "format": "html",
             "actions": [["actionSleep", "10", ""]]
         }
-        htmlStr = requests.get("http://0.0.0.0:8032/get", json=reqData).text.lower()
+        htmlStr = requests.get(serverName + "/get", json=reqData).text.lower()
         htmlStr = htmlStr.lower()
         if "all products" not in htmlStr or "bulk order" not in htmlStr:
             raise AssertionError("Could not get passed datadome")

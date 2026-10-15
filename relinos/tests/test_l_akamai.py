@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import requests
 
+from relinos.config import serverName
 from relinos.parse import JsonType
 
 class TestAkamai(unittest.TestCase):
@@ -18,7 +19,7 @@ class TestAkamai(unittest.TestCase):
             "format": "html",
             "actions": [["actionSleep", "5", ""]]
         }
-        htmlStr = requests.get("http://0.0.0.0:8032/get", json=reqData).text.lower()
+        htmlStr = requests.get(serverName + "/get", json=reqData).text.lower()
         anker = "investor relations" 
         with self.subTest():
             if "akamai" not in htmlStr:

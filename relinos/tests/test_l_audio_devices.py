@@ -6,6 +6,7 @@ from lxml import html
 import json
 
 from relinos.parse import JsonType
+from relinos.config import serverName
 
 class TestAudioDevices(unittest.TestCase):
     """Some sites check for audio devices so using pulseAudio script makes sure some are returned"""
@@ -31,7 +32,7 @@ navigator.mediaDevices.enumerateDevices().then(function(devices){var
                     """, ""],
             ]
         }
-        htmlStr = requests.get("http://0.0.0.0:8032/get", json=reqData).text.lower()
+        htmlStr = requests.get(serverName + "/get", json=reqData).text.lower()
         htmlTree = html.fromstring(htmlStr)
         results: list[html.HtmlElement] = htmlTree.xpath("//*[@id='debug_audio_devices']") # type: ignore
         if not results:

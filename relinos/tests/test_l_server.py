@@ -4,6 +4,7 @@ import asyncio
 
 import requests
 
+from relinos.config import serverName
 from relinos.parse import JsonType
 
 class TestServer(unittest.TestCase):
@@ -17,7 +18,7 @@ class TestServer(unittest.TestCase):
             "render": True,
             "cache": "0s",
         }
-        resp = requests.get("http://0.0.0.0:8032/get", json=reqData)
+        resp = requests.get(serverName + "/get", json=reqData)
         resp.raise_for_status()
         htmlSrc = resp.text
 

@@ -1,6 +1,7 @@
 import unittest
 import requests
 
+from relinos.config import serverName
 from relinos.parse import JsonType
 
 class TestCloudflare(unittest.TestCase):
@@ -13,7 +14,7 @@ class TestCloudflare(unittest.TestCase):
             "cache": "0s",
             "format": "html",
         }
-        htmlStr = requests.get("http://0.0.0.0:8032/get", json=reqData).text
+        htmlStr = requests.get(serverName + "/get", json=reqData).text
         anker = "Find the Best Web Designers Jobs"
         with self.subTest():
             if not anker in htmlStr:

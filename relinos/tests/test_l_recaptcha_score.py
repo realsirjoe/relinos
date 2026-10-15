@@ -5,6 +5,7 @@ import json
 from lxml import html
 import requests
 
+from relinos.config import serverName
 from relinos.parse import JsonType
 
 class TestRecaptcha(unittest.TestCase):
@@ -23,7 +24,7 @@ class TestRecaptcha(unittest.TestCase):
                 ["actionSleep", "3", ""],
             ]
         }
-        htmlStr = requests.get("http://0.0.0.0:8032/get", json=reqData).text.lower()
+        htmlStr = requests.get(serverName + "/get", json=reqData).text.lower()
         htmlTree = html.fromstring(htmlStr)
         recaptchaResponseXPath = "//*[@class='response']"
         results: list[html.HtmlElement] = htmlTree.xpath(recaptchaResponseXPath) # type: ignore

@@ -1,6 +1,7 @@
 import unittest
 import requests
 
+from relinos.config import serverName
 from relinos.scraping_api import BrowserManager
 from relinos.parse import JsonType
 
@@ -14,7 +15,7 @@ class TestBloomberg(unittest.TestCase):
             "debug": False,
             "actions": [["actionSleep", "1", ""]]
         }
-        htmlStr = requests.get("http://0.0.0.0:8032/get", json=reqData).text
+        htmlStr = requests.get(serverName + "/get", json=reqData).text
         htmlStr = htmlStr.lower()
 
         if "bloomberg terminal demo" not in htmlStr:
