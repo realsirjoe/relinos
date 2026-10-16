@@ -1143,6 +1143,7 @@ class BrowserManager:
         return newBrowser
 
     async def open(self) -> None:
+        self.gotoCount = 0
         if not self.isClone and not self.isOpen:
             displayNumberStr = ""
             if self.typ == browserLinuxXVFB:
