@@ -1,5 +1,7 @@
 # Searches google and returns structured results
+from typing import cast
 import json
+import time
 
 from relinos.config import serverName
 from relinos.parse import JsonType
@@ -58,5 +60,16 @@ def google(searchTerm: str, pages: int = 1, cache: str = "10m") -> tuple[JsonTyp
     return resp.json(), None
 
 if __name__ == "__main__":
-    data = google("Leonardo Da Vinci", 2)
-    print(json.dumps(data, indent=4, ensure_ascii=False))
+    iterations = 5
+    errCount = 0
+    for i in range(iterations):
+        data, err = google("Charles Dickens", 2, cache="0s")
+        assert type(data) == dict
+        if err or not data.get("results") or len(cast(list[JsonType], data["results"])) < 5:
+            errCount += 1
+        else:
+            print(data["results"])
+        time.sleep(3)
+    errRatio = errCount/iterations
+    if errRatio > 0.4:
+        raise AssertionError(f"Error Ratio {errRatio} to high, iterations: {iterations}")

@@ -10,12 +10,12 @@ from curl_cffi import requests
 from lxml import html
 
 def sendTelegramMessage(text: str, chatID: str) -> None:
-    botToken = os.getenv("BOT_TOKEN")
-    if not botToken: 
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token: 
         print(text)
         print("To send this message to your messenger set BOT_TOKEN env")
         return 
-    endpoint = f"https://api.telegram.org/bot{botToken}/sendMessage"
+    endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
 
     params = { "chat_id": chatID, "text": text, "parse_mode": "Markdown" }
 
