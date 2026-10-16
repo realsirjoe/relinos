@@ -1,3 +1,4 @@
+from typing import cast
 import unittest
 from datetime import datetime, timedelta
 
@@ -34,7 +35,7 @@ navigator.mediaDevices.enumerateDevices().then(function(devices){var
         }
         htmlStr = requests.get(serverName + "/get", json=reqData).text.lower()
         htmlTree = html.fromstring(htmlStr)
-        results: list[html.HtmlElement] = htmlTree.xpath("//*[@id='debug_audio_devices']") # type: ignore
+        results: list[html.HtmlElement] = cast(list[html.HtmlElement], htmlTree.xpath("//*[@id='debug_audio_devices']"))
         if not results:
             raise AssertionError("TestAudioDevices: Could not find tag debug_audio_devices")
 

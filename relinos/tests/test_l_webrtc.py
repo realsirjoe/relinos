@@ -17,7 +17,7 @@ class TestWebRTC(unittest.TestCase):
             "debug": False,
             "cache": "0s",
             "format": "html",
-            "actions": [("actionWaitForAndSelect", "//*[@id='rtc-leak' and @class='']", "20")]
+            "actions": [["actionWaitForAndSelect", "//*[@id='rtc-leak' and @class='']", "20"]]
         }
         htmlStr = requests.get(serverName + "/get", json=reqData).text
         tree = html.fromstring(htmlStr)

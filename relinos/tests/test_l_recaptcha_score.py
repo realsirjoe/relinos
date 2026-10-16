@@ -1,3 +1,4 @@
+from typing import cast
 import unittest
 from datetime import datetime, timedelta
 import json
@@ -27,7 +28,7 @@ class TestRecaptcha(unittest.TestCase):
         htmlStr = requests.get(serverName + "/get", json=reqData).text.lower()
         htmlTree = html.fromstring(htmlStr)
         recaptchaResponseXPath = "//*[@class='response']"
-        results: list[html.HtmlElement] = htmlTree.xpath(recaptchaResponseXPath) # type: ignore
+        results: list[html.HtmlElement] = cast(list[html.HtmlElement], htmlTree.xpath(recaptchaResponseXPath))
         if not results:
             raise AssertionError(f"Invalid TestRecaptcha could not find captcha response on page html")
 

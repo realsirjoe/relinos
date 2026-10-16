@@ -7,8 +7,8 @@ from relinos.parse import parseHtml, getCoverageScore, JsonType
 
 import requests
 
-def searchVinted(searchTerm: str) -> list[dict[str, JsonType]]:
-    def parseVintedItems(htmlSrc: str) -> list[dict[str, JsonType]]:
+def searchVinted(searchTerm: str) -> list[dict[str, str|int|float|bool|None]]:
+    def parseVintedItems(htmlSrc: str) -> list[dict[str, str|int|float|bool|None]]:
         xpathschema = {
             "listings": {
                 "$xpath": '//*[@data-testid="grid-item"]',
@@ -40,7 +40,7 @@ def searchVinted(searchTerm: str) -> list[dict[str, JsonType]]:
 
             listings.append(l)
 
-        return listings
+        return cast(list[dict[str, str|int|float|bool|None]], listings)
 
     searchUrl = "https://www.vinted.com/catalog?" + urlencode({"search_text": searchTerm, "order": "newest_first", "page": "1"})
     reqData: JsonType = {"url": searchUrl, "render": False, "debug": False, "cache": "1d"}
