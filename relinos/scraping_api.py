@@ -323,7 +323,7 @@ class Routine:
         return s
 
     def shortHelpMessage(self) -> str:
-        return f'{self.name}({",".join([p.name for p in self.paramsMap.values()])})'
+        return f'{self.name}({",".join([p.name + ("?" if p.default else "") for p in self.paramsMap.values()])})'
 
     def patch(self, params: dict[str, str]) -> Routine:
         try:
@@ -391,7 +391,7 @@ class Routine:
 
         for key in params.keys():
             if key not in self.paramsMap:
-                raise APIException(f"Unsupported parameter '{key}' for routine '{self.shortHelpMessage()}'")
+                raise APIException(f"Unknown parameter '{key}' for routine '{self.shortHelpMessage()}'")
 
         for k in self.paramsMap.keys():
             if k in params:
