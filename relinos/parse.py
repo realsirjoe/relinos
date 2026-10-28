@@ -9,6 +9,8 @@ from relinos.markdown import htmlToMarkdown
 class ParseException(Exception):
     pass
 
+type JsonType = None|bool|int|float|str|list["JsonType"]|dict[str,"JsonType"]
+
 # strings that look like a path or url 
 # won't get normalized in closestMatches the same way text would
 def isUrlOrPath(s: str) -> bool:
@@ -132,7 +134,6 @@ def parseHtml(htmlStr: str, xpathSchema: str, resolvingUrl: str="") -> tuple[Jso
 
 ################### Scoring ######################
 
-type JsonType = None|bool|int|float|str|list["JsonType"]|dict[str,"JsonType"]
 def flattenJson(data: JsonType) -> list[tuple[str, None|bool|int|float|str]]:
     values = []
     def walk(data: JsonType, path: str = "") -> None:
