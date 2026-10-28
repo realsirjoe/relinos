@@ -105,7 +105,7 @@ To save your routines you name and parametrize it.
 
 Simply start by changing **/get** to **POST /routines/your_routine_name**. 
 
-Since you normally want your routine to take some input like a search term or credentials, **params** specifies where to put those values. You can also add a **description** to both the routine and each param. If a routine already exists you must specify **overwrite: true** to re-save it
+Since you normally want your routine to take some input like a search term or credentials, **params** specifies where to put those values. You can also add a **description** to both the routine and each param. If a routine already exists you must specify **overwrite=true** as query param to overwrite it
 
 |Param Key      |Description                               |
 |---------------|------------------------------------------|

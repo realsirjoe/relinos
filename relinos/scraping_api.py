@@ -519,7 +519,7 @@ def addExtraction(extractionMeta: ExtractionMeta, filename: str, fileData: str =
         if not overwrite:
             _, _, success = getExtraction(extractionMeta.name)
             if success: 
-                raise HTTPException(status_code=400, detail=f"Extraction '{extractionMeta.name}' already exists, add 'overwrite: true' to the json body")
+                raise HTTPException(status_code=400, detail=f"Extraction '{extractionMeta.name}' already exists, add 'overwrite=true' as query param")
 
         idStart = extractionMeta.id[:2]
         idTail = extractionMeta.id[2:]
@@ -720,7 +720,7 @@ def addRoutine(routine: Routine, overwrite: bool = False) -> None:
         if not overwrite:
             _, success = getRoutine(routine.name)
             if success: 
-                raise HTTPException(status_code=400, detail=f"Routine '{routine.name}' already exists, add 'overwrite: true' to the json body")
+                raise HTTPException(status_code=400, detail=f"Routine '{routine.name}' already exists, add 'overwrite=true' as query param")
 
         if not routine.name:
             raise APIException("Cannot add routine without a routine.name")

@@ -6,7 +6,7 @@ from pathlib import Path
 import uuid
 import re
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, StrictInt, StrictFloat
@@ -17,7 +17,7 @@ from relinos.config import debugDirPath, serverName
 from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, RoutineParam, Patch, addRoutine, kindStr, deleteRoutine
 from relinos.normalize import urlToDomain, keyCounts
 from relinos.parse import getCoverageScore, ParseException, JsonType
-from relinos.tools import serialize
+from relinos.tools import serialize, deserialize
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,9 @@ class ActionModel(BaseModel):
     typ: str
     v0: str = ""
     v1: str = ""
+
+typExtraction = "extraction"
+typRoutine = "routine"
 
 def parseActions(modelActions: list[ActionModel]|list[tuple[str, str, str]]) -> list[Action]:
     actions = []
@@ -78,7 +81,6 @@ class RoutineParamModel(BaseModel):
 
 class AddRoutineRequestModel(GetRequestModel):
     description: str = ""
-    overwrite: bool = False
     params: list[RoutineParamModel]
 
 class RoutineRequestModel(BaseModel):
@@ -99,11 +101,9 @@ class RoutineRequestModel(BaseModel):
 # This can be done by specifying a valid /get or a valid /do request body
 class AddExtractionViaGetModel(GetRequestModel):
     description: str = ""
-    overwrite: bool = False
 
 class AddExtractionViaDoModel(RoutineRequestModel):
     description: str = ""
-    overwrite: bool = False
 
 # debug files are cached for 1 year since they practically never change once get/getMulti response returned
 class CachedStaticFiles(StaticFiles):
@@ -204,7 +204,7 @@ async def search_routines(q: str = "") -> Response:
     return JSONResponse(searchRoutines(q))
 
 @app.post("/routines/{routineName}")
-async def add_routine(request: Request, routineName: str, req: AddRoutineRequestModel) -> Response:
+async def add_routine(request: Request, routineName: str, req: AddRoutineRequestModel, overwrite: bool = Query(False)) -> Response:
     # parsing routine params
     routineParams = []
     for pModel in req.params:
@@ -238,14 +238,16 @@ async def add_routine(request: Request, routineName: str, req: AddRoutineRequest
     del patchedRoutine["description"]
     del patchedRoutine["params"]
 
-    addRoutine(routine, overwrite=req.overwrite)
+    addRoutine(routine, overwrite=overwrite)
     return JSONResponse({"example": patchedRoutine})
 
 @app.get("/routines/{routineName}", response_class=HTMLResponse)
 async def routine_details(request: Request, routineName: str) -> Response:
     routine, success = getRoutine(routineName)
     if not success: raise HTTPException(status_code=404, detail=f"Unknown routine '{routineName}'")
-    return JSONResponse(serialize(routine))
+    routineData = serialize(routine)
+    routineData["type"] = typRoutine
+    return JSONResponse(routineData)
 
 @app.delete("/routines/{routineName}", response_class=HTMLResponse)
 async def delete_routine(request: Request, routineName: str) -> None:
@@ -321,6 +323,7 @@ async def extraction_details(request: Request, extractionName: str) -> Response:
 
     return JSONResponse({
         "name": meta.name,
+        "type": typExtraction,
         "description": meta.description,
         "domain": meta.description,
         "url": meta.url,
@@ -331,7 +334,7 @@ async def extraction_details(request: Request, extractionName: str) -> Response:
     })
 
 @app.post("/extractions/{extractionName}")
-async def add_extraction(request: Request, extractionName: str, req: AddExtractionViaGetModel|AddExtractionViaDoModel) -> None:
+async def add_extraction(request: Request, extractionName: str, req: AddExtractionViaGetModel|AddExtractionViaDoModel, overwrite: bool = Query(False)) -> None:
     if req.extraction == "":
         raise HTTPException(status_code=422, detail=f"The 'extraction' key is missing, specify an xpathschema")
     if isinstance(req.extraction, str):
@@ -362,11 +365,32 @@ async def add_extraction(request: Request, extractionName: str, req: AddExtracti
         domain=urlToDomain(d["finalUrl"]), url=d["finalUrl"], 
         keyCount=keyCount, keyCoverage=keyCoverage, coverageScore=coverageScore
     )
-    addExtraction(extractionMeta, filename="xpathschema.json", fileData=json.dumps(req.extraction, indent=4, ensure_ascii=False), overwrite=req.overwrite)
+    addExtraction(extractionMeta, filename="xpathschema.json", fileData=json.dumps(req.extraction, indent=4, ensure_ascii=False), overwrite=overwrite)
 
 @app.delete("/extractions/{extractionName}", response_class=HTMLResponse)
 async def delete_extraction(request: Request, extractionName: str) -> None:
     deleteExtraction(extractionName)
+
+@app.post("/import")
+async def importFile(request: Request, overwrite: bool = Query(False)):
+    body = await request.body()
+    data = json.loads(body)
+    typ = data["type"]
+    del data["type"] # to not cause problems on deserialization
+
+    if typ == typExtraction:
+        extractionMeta = ExtractionMeta(
+            name=data["name"], description=data["description"],
+            domain=data["domain"], url=data["url"],
+            keyCount=data["keyCount"], keyCoverage=data["keyCoverage"], coverageScore=data["coverageScore"]
+        )
+        extractionData = json.dumps(data["extraction"], indent=4, ensure_ascii=False)
+        addExtraction(extractionMeta, filename="xpathschema.json", fileData=extractionData, overwrite=overwrite)
+    elif typ == typRoutine:
+        routine = deserialize(Routine, data)
+        addRoutine(routine, overwrite=overwrite)
+    else:
+        raise HTTPException(status_code=400, detail=f"Cannot import invalid type {data['type']}")
 
 @app.get("/get", response_class=HTMLResponse)
 async def get(request: Request, req: GetRequestModel) -> Response:
