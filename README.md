@@ -2,7 +2,7 @@
 
 It is a tool for rendering, automating and extracting data on the web
 
-https://github.com/realsirjoe/designs/raw/refs/heads/master/relinos_demo.mov
+![Relinos Demo](https://raw.githubusercontent.com/realsirjoe/designs/master/relinos_demo.gif)
 
 # Getting Started
 
