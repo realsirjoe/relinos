@@ -191,7 +191,7 @@ An example XPathSchema looks like this
     },
     "people_also_search_for": {
         "$xpath": "//*[@class='ngTNl ggLgoc']",
-        "$list": true,
+        "$list": true
     }
 }
 ```
@@ -233,12 +233,12 @@ It will create data like this
 |Special key |Description                                                               |Example                              |
 |------------|--------------------------------------------------------------------------|-------------------------------------|
 |$xpath      | xpath describing how to find the data                              | "//div[@class='price']"             |
-|$pattern    | regex to match the data before $extract and $transform             | "\d[\.\d+]?"                        |
+|$pattern    | regex to match the data before $extract and $transform             | "\\d[\\.\\d+]?"                        |
 |$required   | data must exist                                                          | true or false                       |
 |$list       | Return all matching elements as a list instead of the first result.      | true or false                       |
 |$format     | How to format the selected html, parent elements ignore format           | "text" or "html" or "md"            |
 |$transform  | uses predefined functions to transform data                              | coming soon                         |
-|$extract    | extracts string data with a regex by keeping the first capturing group   | "(\d[\.\d+]?)US$"                   |
+|$extract    | extracts string data with a regex by keeping the first capturing group, make sure to escape '\'  | "(\\d[\\.\\d+]?)US$"                   |
 
 You can add extractions if you want to reuse them later by reusing your **/get** or **/do** request body on **POST /extractions/your_extraction_name**, you can also add a **description** key to the body.  
 
