@@ -2,6 +2,8 @@
 
 It is a tool for rendering, automating and extracting data on the web
 
+<video src="https://github.com/realsirjoe/designs/raw/refs/heads/master/relinos_demo.mov" controls width="100%"></video>
+
 # Getting Started
 
 Relinos runs on Linux and OSX
