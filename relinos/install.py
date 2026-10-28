@@ -45,7 +45,7 @@ def getDefaultChromiumLocation() -> tuple[str, Exception|None]:
 
 def createEnv() -> None:
     venvPath = Path.home() / ".relinos" / "env"
-    venvPath.mkdir(exist_ok=True)
+    venvPath.mkdir(parents=True, exist_ok=True)
 
     subprocess.run([sys.executable, "-m", "venv", str(venvPath)], check=True)
 
