@@ -63,4 +63,4 @@ if err:
     print(f"{ANSI_RED}Missing Google Chrome{ANSI_CLEAR}\nGo to https://www.google.com/chrome/ and follow the instructions")
 else:
     print(f"{ANSI_GREEN}Everything is installed {ANSI_CLEAR}")
-    print("run: bash relinos/startup.sh")
+    print("run: bash relinos/start.sh")
