@@ -61,6 +61,7 @@ createEnv()
 _, err = getDefaultChromiumLocation()
 if err:
     print(f"{ANSI_RED}Missing Google Chrome{ANSI_CLEAR}\nGo to https://www.google.com/chrome/ and follow the instructions")
+    print(f"On Linux point the chrome/chromium binary at /usr/bin/google-chrome")
 else:
     print(f"{ANSI_GREEN}Everything is installed {ANSI_CLEAR}")
     print("run: bash relinos/start.sh")
