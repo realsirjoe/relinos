@@ -324,6 +324,9 @@ async def extraction_details(request: Request, extractionName: str) -> Response:
         "description": meta.description,
         "domain": meta.description,
         "url": meta.url,
+        "keyCount": meta.keyCount,
+        "keyCoverage": meta.keyCoverage,
+        "coverageScore": meta.coverageScore,
         "extraction": json.loads(xpathschema)
     })
 
