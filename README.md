@@ -1,6 +1,6 @@
 **Relinos** is a **browser** that does the browsing for you. 
 
-It is a tool for rendering, automating and extracting data on the web
+It is a language agnostic tool for rendering, automating and extracting data on the web
 
 ![Relinos Demo](https://raw.githubusercontent.com/realsirjoe/designs/master/relinos_demo.gif)
 
