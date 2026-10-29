@@ -62,6 +62,22 @@ curl --request GET \
 
 The response will return the final site after all interactions in the specified **format**. **includeMeta** will return json containing the final site inside the **data** key.
 
+# Shared Web Interactions
+
+Import ready-to-use routines and extractions from the [Relinos Registry](https://github.com/realsirjoe/relinos_registry).
+
+<a href="https://github.com/realsirjoe/relinos_registry">
+<img src="https://www.google.com/s2/favicons?domain=google.com&sz=128" width="30" height="30" align="absmiddle">
+
+<img src="https://www.google.com/s2/favicons?domain=maps.google.com&sz=128" width="30" height="30" align="absmiddle">
+
+<img src="https://www.google.com/s2/favicons?domain=youtube.com&sz=128" width="30" height="30" align="absmiddle">
+
+<img src="https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=128" width="30" height="30" align="absmiddle">
+
+<img src="https://www.google.com/s2/favicons?domain=skyscanner.com&sz=128" width="25" height="25" align="absmiddle">
+</a>
+
 # Browser Rendering
 
 On the web many sites are driven by javascript, this requires rendering sites in a browser.
