@@ -66,6 +66,8 @@ The response will return the final site after all interactions in the specified 
 
 Import ready-to-use routines and extractions from the [Relinos Registry](https://github.com/realsirjoe/relinos_registry).
 
+To import a routine or extraction, send the JSON file as the raw request body to the **/import** endpoint.
+
 <a href="https://github.com/realsirjoe/relinos_registry">
 <img src="https://www.google.com/s2/favicons?domain=google.com&sz=128" width="30" height="30" align="absmiddle">
 
