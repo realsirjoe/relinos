@@ -1,6 +1,6 @@
 **Relinos** is a **browser** that does the browsing for you. 
 
-It is a language agnostic tool for rendering, automating and extracting data on the web
+It is a hosted web API for rendering, automating and extracting data online
 
 ![Relinos Demo](https://raw.githubusercontent.com/realsirjoe/designs/master/relinos_demo.gif)
 
@@ -10,14 +10,14 @@ Relinos runs on Linux and OSX
 
 **Install**
  
-```
+```bash
 git clone https://github.com/realsirjoe/relinos
 cd relinos
 python3 relinos/install.py
 ```
 
 **Start** 
-```
+```bash
 bash relinos/start.sh
 ```
 
@@ -108,7 +108,7 @@ One can send interactions like clicking or typing to the browser through the **a
 
 
 This example searches a site
-```
+```json
 [
     ["actionWaitForAndSelect", "//textarea[@name='q']", "1"],
     ["actionType", "My Search Query", ""],
@@ -143,7 +143,7 @@ Since you normally want your routine to take some input like a search term or cr
 It is recommended to use multiple routines for complex interactions, e.g. one for performing a search, one for buying a product, ... 
 
 Here a parametrized routine ready for saving
-```
+```json
 {
     "name": "google_search",
     "description": "",
@@ -193,7 +193,7 @@ XPathSchema structures data as a tree since most of the internet is represented 
 
 An example XPathSchema looks like this
 
-```
+```json
 {
     "results": {
         "$xpath": "//*[contains(@class, 'Ww4FFb')]",
@@ -225,7 +225,7 @@ This way one could specify how to find each google search result and inside each
 The format itself therefore already shows the final format the extracted data will have.
 It will create data like this
 
-```
+```json
 {
         "results": [
             {
