@@ -1,6 +1,6 @@
 **Relinos** is a programmable **browser** that does the browsing for you. 
 
-It allows you to render websites, automate browser interactions, and extract structured data through a language agnostic web API.
+It allows you to render and interact with websites, run multiple browser sessions concurrently, and extract structured data through a language-agnostic HTTP API.
 
 ![Relinos Demo](https://raw.githubusercontent.com/realsirjoe/designs/master/relinos_demo.gif)
 
