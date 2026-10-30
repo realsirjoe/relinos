@@ -47,15 +47,15 @@ curl --request GET \
 
 |Parameter   |Description                                                               |Example                              |
 |------------|--------------------------------------------------------------------------|-------------------------------------|
-|url         | Downloads the url                                                        | "https://example.com"               |
-|render      | Renders the site through a real browser                                  | true or false                       |
-|cache       | Picks a cached result if it was less than the specified duration ago     | "600s" or "60m" or "2h" or "7d" or "1y" |
-|debug       | Sends back x-debug-url header, visit the url to inspect and debug the interaction   | true or false    |
-|includeMeta | Wraps meta information around the response                               | true or false                       |
-|format      | The output format                                                        | "html" or "md" or "json"            |
-|actions     | A list of website interactions to perform, [see Automation](#automation) | [["actionSelect", "//div[@id='email']", ""],["actionClick", "", ""]]  |
-|pagination  | Paginates over multiple pages. It is a tuple containing the xpath for the next page url and the nr of pages to get | ["//a[@id='nextpage']", 2]  |
-|extraction   | Specify a saved extractions name or a full extraction. Requires format: "json". Dont forget to escape regexes to keep the json valid, see Extraction to apply to the final html  | "google_com_search_results"           |
+|url         | Downloads the url                                                        | `"https://example.com"`               |
+|render      | Renders the site through a real browser                                  | `true` or `false`                   |
+|cache       | Picks a cached result if it was less than the specified duration ago     | `"600s"` or `"60m"` or `"2h"` or `"7d"` or `"1y"` |
+|debug       | Sends back x-debug-url header, visit the url to inspect and debug the interaction   | `true` or `false`    |
+|includeMeta | Wraps meta information around the response                               | `true` or `false`                       |
+|format      | The output format                                                        | `"html"` or `"md"` or `"json"`            |
+|actions     | A list of website interactions to perform, [see Automation](#automation) | `[["actionSelect", "//div[@id='email']", ""],["actionClick", "", ""]]`  |
+|pagination  | Paginates over multiple pages. It is a tuple containing the xpath for the next page url and the nr of pages to get | `["//a[@id='nextpage']", 2]`  |
+|extraction   | Specify a saved extractions name or a full extraction. Requires format: "json". Dont forget to escape regexes to keep the json valid, [see Extraction](#extraction) to apply to the final html  | `"google_com_search_results"`           |
 
 The response will return the final site after all interactions in the specified **format**. **includeMeta** will return json containing the final site inside the **data** key.
 
@@ -249,13 +249,13 @@ It will create data like this
 
 |Special key |Description                                                               |Example                              |
 |------------|--------------------------------------------------------------------------|-------------------------------------|
-|$xpath      | xpath describing how to find the data                              | "//div[@class='price']"             |
-|$pattern    | regex to match the data before $extract and $transform             | "\\d[\\.\\d+]?"                        |
-|$required   | data must exist                                                          | true or false                       |
-|$list       | Return all matching elements as a list instead of the first result.      | true or false                       |
-|$format     | How to format the selected html, parent elements ignore format           | "text" or "html" or "md"            |
+|$xpath      | xpath describing how to find the data                              | `"//div[@class='price']"`             |
+|$pattern    | regex to match the data before $extract and $transform             | `"\\d[\\.\\d+]?"`                        |
+|$required   | data must exist                                                          | `true` or `false`                       |
+|$list       | Return all matching elements as a list instead of the first result.      | `true` or `false`                       |
+|$format     | How to format the selected html, parent elements ignore format           | `"text"` or `"html"` or `"md"`            |
 |$transform  | uses predefined functions to transform data                              | coming soon                         |
-|$extract    | extracts string data with a regex by keeping the first capturing group, make sure to escape '\'  | "(\\d[\\.\\d+]?)US$"                   |
+|$extract    | extracts string data with a regex by keeping the first capturing group, make sure to escape '\\'  | `"(\\d[\\.\\d+]?)US$"`                   |
 
 You can add extractions if you want to reuse them later by reusing your **/get** or **/do** request body on **POST /extractions/your_extraction_name**, you can also add a **description** key to the body.  
 
