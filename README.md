@@ -1,6 +1,6 @@
-**Relinos** is a **browser** that does the browsing for you. 
+**Relinos** is a programmable **browser** that does the browsing for you. 
 
-It is a hosted web API for rendering, automating and extracting data online
+It allows you to render websites, automate browser interactions, and extract structured data through a language agnostic web API.
 
 ![Relinos Demo](https://raw.githubusercontent.com/realsirjoe/designs/master/relinos_demo.gif)
 
@@ -26,7 +26,7 @@ The only required parameter is **url**
 
 ```
 curl --request GET \
-  --url http://0.0.0.0:8031/get \
+  --url http://0.0.0.0:8032/get \
   --header 'Content-Type: application/json' \
   --data '{
     "url": "https://stackoverflow.com",
@@ -37,13 +37,10 @@ curl --request GET \
         ["actionWaitForAndSelect", "//*[@data-gps-track='\''login.click'\'']", "5"],
         ["actionClick", "", ""],
         ["actionWaitForAndSelect", "//*[@id='\''email'\'']", "5"],
-        ["actionType", "my email", ""],
+        ["actionType", "myemail@example.com", ""],
         ["actionWaitForAndSelect", "//*[@id='\''password'\'']", "5"],
         ["actionType", "my password", ""],
-        ["actionKeyboardEnter", "", ""],
-        ["actionWaitForAndSelect", "//*[@class='\''bar-sm s-avatar--image js-avatar-me'\'']", "5"],
-        ["actionClick", "", ""],
-        ["actionSleep", "5", ""]
+        ["actionKeyboardEnter", "", ""]
     ]
 }'
 ```
