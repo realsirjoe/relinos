@@ -163,21 +163,26 @@ async def prepareRequest(clearContext: bool = True, browserNr: int = -1) -> Asyn
     """
     try:
         browser, browserNr = await getBrowser(browserNr)
-        if clearContext: await browser.clearContext()
-
-        yield browser
-    except (pydoll.exceptions.PageLoadTimeout, pydoll.exceptions.CommandExecutionTimeout):
-        if browser:
+        try:
+            if clearContext: await browser.clearContext()
+        except (pydoll.exceptions.PageLoadTimeout, pydoll.exceptions.CommandExecutionTimeout):
             # WEBSOCKET LOCKING if browser seems to be broken we close and create a new one
             # IMPORTANT:, uvicorn or fast api seems to interfere with pydoll's websockets which leads to it getting stuck, 
             # blocking cdp, even restarting websocket didn't fix the issue just killing the process, 
             # closing the browser and creating a new one is a quick fix thats not too costly 
             # since the issue doesn't happen too often
             #TODO Verify: This also means we cannot use pydoll contexts though!!!
-
             logger.info("Get command timeout, creating new browser")
             await browser.close()
             await browser.open()
+
+            if clearContext: await browser.clearContext()
+
+        yield browser
+    except (pydoll.exceptions.PageLoadTimeout, pydoll.exceptions.CommandExecutionTimeout):
+        logger.info("Get command timeout, creating new browser")
+        await browser.close()
+        await browser.open()
 
         raise HTTPException(status_code=500, detail="Internal Error, try again")
     except HTTPException:
