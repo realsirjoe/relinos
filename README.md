@@ -17,6 +17,7 @@ Relinos runs on Linux and OSX
 ```bash
 git clone https://github.com/realsirjoe/relinos
 cd relinos
+git checkout v0.1.0
 python3 relinos/install.py
 ```
 
