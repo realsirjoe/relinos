@@ -56,6 +56,7 @@ curl --request GET \
 |cache       | Picks a cached result if it was less than the specified duration ago     | `"600s"` or `"60m"` or `"2h"` or `"7d"` or `"1y"` |
 |debug       | Sends back x-debug-url header, visit the url to inspect and debug the interaction   | `true` or `false`    |
 |includeMeta | Wraps meta information around the response                               | `true` or `false`                       |
+|proxy       | Uses a supplied http, https or socks5 proxy, must include schema          | `http://127.0.0.1:1080` or `socks5://12.98.4.2:1988`          |
 |format      | The output format                                                        | `"html"` or `"md"` or `"json"`            |
 |actions     | A list of website interactions to perform, [see Automation](#automation) | `[["actionSelect", "//div[@id='email']", ""],["actionClick", "", ""]]`  |
 |pagination  | Paginates over multiple pages. It is a tuple containing the xpath for the next page url and the nr of pages to get | `["//a[@id='nextpage']", 2]`  |

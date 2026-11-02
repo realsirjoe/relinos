@@ -65,6 +65,7 @@ class GetRequestModel(BaseModel):
     debug: bool = False
     cache: str = "0s"
     includeMeta: bool = False
+    proxy: str = ""
 
 class PatchModel(BaseModel):
     keypath: str
@@ -96,6 +97,7 @@ class RoutineRequestModel(BaseModel):
     debug: bool = False
     cache: str = "0s"
     includeMeta: bool = False
+    proxy: str = ""
 
 # When adding an extraction we actually run it to ensure its working. 
 # This can be done by specifying a valid /get or a valid /do request body
@@ -279,6 +281,7 @@ async def routine(request: Request, req: RoutineRequestModel) -> Response:
             extraction=req.extraction, 
             maxCacheAge=maxCacheAge, 
             debug=req.debug, 
+            proxy=req.proxy,
             browser=browserInfo,
             sessionID=request.state.sessionID
         )
@@ -344,14 +347,14 @@ async def add_extraction(request: Request, extractionName: str, req: AddExtracti
         # interpret as /get
         reqData = GetRequestModel(
             url=req.url, render=req.render, actions=req.actions, pagination=req.pagination, 
-            format="json", extraction=req.extraction, debug=False, cache=req.cache, includeMeta=True
+            format="json", extraction=req.extraction, debug=False, cache=req.cache, includeMeta=True, proxy=req.proxy
         )
         response = await get(request, reqData)
     else:
         # interpret as /do
         reqData2 = RoutineRequestModel(
             name=req.name, params=req.params, format="json", extraction=req.extraction, 
-            debug=False, cache=req.cache, includeMeta=True
+            debug=False, cache=req.cache, includeMeta=True, proxy=req.proxy
         )
         response = await routine(request, reqData2)
     d = json.loads(bytes(response.body))
@@ -418,6 +421,7 @@ async def get(request: Request, req: GetRequestModel) -> Response:
             extraction=req.extraction, 
             maxCacheAge=maxCacheAge, 
             debug=req.debug, 
+            proxy=req.proxy,
             browser=browserInfo,
             sessionID=request.state.sessionID
         )

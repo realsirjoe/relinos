@@ -1,0 +1,9 @@
+{
+    "manifest_version": 3,
+    "name": "Relinos Proxy",
+    "version": "1.0",
+    "permissions": ["proxy"],
+    "background": {
+        "service_worker": "relinos_proxy.js"
+    }
+}

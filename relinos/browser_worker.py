@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 WORKER_ID_PATH = Path.home() / ".relinos" / "worker-id"
 PORT = 18765 # standard browser worker port
 BROWSER_POOL_SIZE = int(os.getenv("BROWSER_POOL_SIZE", "4")) # nr of browsers always open waiting for requests
-BROWSER_PROXY = os.getenv("BROWSER_PROXY", "")
 
 logger.info(
     f"Browser Worker Settings:\n" 
@@ -54,6 +53,7 @@ class ActionModel(BaseModel):
 
 class BrowserRequestModel(BaseModel):
     browserNr: int = -1 # -1 means pick any available
+    proxy: str = ""
     debug: bool = False
     clearContext: bool = True
     sessionID: str
@@ -130,7 +130,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     try:
         for i in range(BROWSER_POOL_SIZE):
-            b = BrowserManager(proxy=BROWSER_PROXY, typ=browserType)
+            b = BrowserManager(typ=browserType)
             await b.open()
             async with browserPoolLock:
                 allBrowsers.add(b)
@@ -225,6 +225,7 @@ async def request(req: BrowserRequestModel) -> Response:
         try:
             tempDir = mkdtemp()
             startTime = int(time.time())
+            await browser.setProxy(req.proxy)
             if req.url: actions = [Action("actionGoTo", req.url, "")] + actions
             if actions: await ActionLoop(browser, actions=actions, startTime=startTime, tempDir=tempDir, debugDir=userDebugDir, debug=req.debug)
 

@@ -15,7 +15,9 @@ import re
 import sqlite3
 from datetime import datetime
 from functools import partial
+import platform
 
+from pydoll.utils import validate_browser_paths
 from pydoll.constants import PageLoadState
 from pydoll.browser import Chrome
 from pydoll.browser.tab import Tab
@@ -26,6 +28,7 @@ from pydoll.protocol.network.types import ResourceType
 from pydoll.protocol.base import Command
 from pydoll.protocol.input.types import KeyEventType
 from pydoll.elements.web_element import WebElement
+from pydoll.connection.connection_handler import ConnectionHandler
 
 from curl_cffi import requests
 from curl_cffi.requests import AsyncSession
@@ -59,10 +62,42 @@ Path(dumpDirPath).mkdir(exist_ok=True)
 def sha1(text: str) -> str:
     return hashlib.sha1(text.encode()).hexdigest()
 
-def getChrome(displayNumber: str, userDataDir: str, proxy: str = "") -> Chrome:
+def getDefaultBinaryLocation() -> str:
+    """
+    Overwrites binary_location instead of using pydolls getDefaultBinaryLocation 
+    to include installed chrome binaries inside ~/.relinos
+    """
+    osName = platform.system()
+
+    browserPaths = {
+        'Windows': [
+            os.environ["HOME"] + '/.relinos/chrome/chrome.exe',
+            r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+            r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+        ],
+        'Linux': [
+            os.environ["HOME"] + '/.relinos/chrome/chrome',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+        ],
+        'Darwin': [
+            os.environ["HOME"] + '/.relinos/chrome/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        ],
+    }
+
+    browserPath = browserPaths.get(osName)
+
+    if not browserPath: raise APIException(f'Unsupported OS: {osName}')
+
+    path = validate_browser_paths(browserPath)
+    logger.debug(f'Using Chrome binary: {path}')
+    return path
+
+def getChrome(displayNumber: str, userDataDir: str) -> Chrome:
     options = ChromiumOptions()
-    #TODO Parametrize binary_location above
-    #options.binary_location = "/custom_chrome_path"
+
+    options.binary_location = getDefaultBinaryLocation()
     # likely loads faster
     options.page_load_state = PageLoadState.INTERACTIVE
     args = []
@@ -72,12 +107,13 @@ def getChrome(displayNumber: str, userDataDir: str, proxy: str = "") -> Chrome:
     args.append('--disable-gcm-registration')
     args.append(f'--user-data-dir={userDataDir}')
     args.append("--use-fake-device-for-media-stream")
+    args.append("--use-mock-keychain") # avoids osx asking for keychain access on startup
+
+    proxyExtension = Path(__file__).parent / "extensions" / "proxy_extension"
+    args.append(f"--load-extension={proxyExtension}")
 
     if displayNumber: 
         args.append(f'--display={displayNumber}')
-
-    if proxy: 
-        args.append(f'--proxy-server={proxy}')
 
     for arg in args:
         options.add_argument(arg)
@@ -362,7 +398,7 @@ class Routine:
             self, 
             params: dict[str, str]|None = None, fmt: str = formatHTML, 
             extraction: str|dict[str, JsonType] = "", 
-            maxCacheAge: int = 0, debug: bool = False, browser: Optional["BrowserInfo"] = None, sessionID: str|None = None
+            maxCacheAge: int = 0, debug: bool = False, proxy: str = "", browser: Optional["BrowserInfo"] = None, sessionID: str|None = None
         ) -> tuple[str, str, str, bool, str]:
 
         """
@@ -413,7 +449,7 @@ class Routine:
         htmlStrs, finalUrls, _ = await getMulti(
             url=routineCopy.url, render=routineCopy.render, 
             actions=routineCopy.actions, debug=debug, maxCacheAge=maxCacheAge, 
-            pagination=routineCopy.pagination, browser=browser, sessionID=sessionID
+            pagination=routineCopy.pagination, proxy=proxy, browser=browser, sessionID=sessionID
         )
         if len(htmlStrs) == 0:
             raise APIException("No pages returned")
@@ -1068,7 +1104,7 @@ class BrowserManager:
     humanize: bool
     proxy: str
 
-    def __init__(self, typ: str = browserLinuxXVFB, humanize: bool = True, proxy: str = "") -> None:
+    def __init__(self, typ: str = browserLinuxXVFB, humanize: bool = True) -> None:
         profile = str(uuid.uuid4())
         self.userDataDir = f"/tmp/chrome_{profile}"
         
@@ -1083,7 +1119,7 @@ class BrowserManager:
         self.isOpen = False
         self.isClone = False
         self.humanize = humanize
-        self.proxy = proxy
+        self.proxy = ""
 
     async def clearContext(self) -> None: 
         params = {"origin": "*", "storageTypes": "all"}
@@ -1165,7 +1201,7 @@ class BrowserManager:
                 logger.info(f"Acquired Xvfb display number {self.displayNumber}")
                 displayNumberStr = f":{self.displayNumber}"
 
-            self.browser = getChrome(displayNumberStr, self.userDataDir, proxy=self.proxy)
+            self.browser = getChrome(displayNumberStr, self.userDataDir)
             self.page = await self.browser.start()
 
             await fixWebRTCLeak(self.page)
@@ -1174,8 +1210,38 @@ class BrowserManager:
             self.isOpen = True
             self.hideWindow() 
 
+            ################ proxy setup
+            response = await self.page._execute_command(
+                Command(method="Target.getTargets")
+            )
+
+            targetId = None
+            for candidate in response["result"]["targetInfos"]:
+                if candidate["url"].endswith("relinos_proxy.js"):
+                    targetId = candidate["targetId"]
+
+            if targetId == None:
+                raise APIException("Cannot change proxy, proxy switching extension could not be loaded, maybe try chromium browser")
+
+            """
+            response = await tab._execute_command(
+                Command(method="Target.attachToTarget", params={"targetId": targetId,"flatten": True})
+            )
+
+            sessionID = response["result"]["sessionId"]
+            print(sessionID)
+            """
+            #TODO creating a connection handler is inefficient and unneeded, 
+            # we can avoid it entirely by implementing support for sessionID on pydoll execute_command
+            self.extensionConn = ConnectionHandler(
+                connection_port= self.page._connection_handler._connection_port,
+                page_id=targetId
+            )
+            ################################
+
     async def close(self) -> None: 
         if not self.isClone and self.isOpen:
+            await self.extensionConn.close()
             try:
                 await self.browser.stop()
             except: 
@@ -1198,6 +1264,36 @@ class BrowserManager:
         self.gotoCount += 1
         logger.info(f"browser goto count {self.gotoCount}")
         await self.page.go_to(url, timeout=timeout)
+
+    async def setProxy(self, proxyStr: str = "") -> None:
+        if self.proxy == proxyStr: return
+        if proxyStr:
+            parsed = urllib.parse.urlsplit(proxyStr)
+            if parsed.scheme not in ("http", "https", "socks4", "socks5"):
+                raise APIException("Unsupported proxy scheme")
+            if not parsed.hostname or not parsed.port:
+                raise APIException(f"Invalid proxy {proxyStr}")
+
+            result = await self.extensionConn.execute_command({
+                "method": "Runtime.evaluate",
+                "params": {
+                    "expression": f"setProxy('{parsed.scheme}', '{parsed.hostname}', {parsed.port})",
+                    "awaitPromise": True,
+                    "returnByValue": True
+                }
+            })
+        else:
+            # reset proxy
+            result = await self.extensionConn.execute_command({
+                "method": "Runtime.evaluate",
+                "params": {
+                    "expression": "chrome.proxy.settings.clear({scope: 'regular'})",
+                    "awaitPromise": True,
+                    "returnByValue": True
+                }
+            })
+
+        self.proxy = proxyStr
 
 async def blockMedia(tab: Tab) -> None:
     ''' for faster loading '''
@@ -1236,7 +1332,6 @@ async def blockMedia(tab: Tab) -> None:
 
     await tab._execute_command(Command(method="Fetch.enable", params=params))
     await tab.on(FetchEvent.REQUEST_PAUSED, partial(blockMediaRequests, tab))
-    
 
 async def fixWebRTCLeak(tab: Tab) -> None:
     '''Needs to be called on every new tab'''
@@ -1428,11 +1523,12 @@ def resolveRelativeUrls(htmlStr: str, baseUrl: str) -> str:
     assert isinstance(response, str)
     return response
 
-async def getMulti(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, pagination: Pagination | None = None, browser: BrowserInfo|None = None, sessionID: str = "defaultSession") -> tuple[list[str], list[str], list[str]]:
+async def getMulti(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, pagination: Pagination | None = None, proxy: str = "", browser: BrowserInfo|None = None, sessionID: str = "defaultSession") -> tuple[list[str], list[str], list[str]]:
     """ 
     Behaves similar to Get but supports pagination
     Returns array for each return value of Get
     """
+
     htmlStrs, finalUrls, signatureStrs = [], [], []
 
     multiSignatureStrRoot = url + "::::" + generateSignature(actions) + "::::" + generateSignature(render) 
@@ -1446,7 +1542,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
 
     htmlStr, finalUrl, signatureStr = await get(
         url=url, render=render, actions=actions, debug=debug, 
-        maxCacheAge=maxCacheAge, browser=browser, sessionID=sessionID
+        maxCacheAge=maxCacheAge, proxy=proxy, browser=browser, sessionID=sessionID
     )
 
     htmlStrs.append(htmlStr)
@@ -1482,7 +1578,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
             # this may not be an issue
             htmlStr, finalUrl, signatureStr = await get(
                 url=url, render=render, actions=actions, debug=debug, 
-                maxCacheAge=maxCacheAge, browser=browser, sessionID=sessionID, prevSignatureStr=signatureStr
+                maxCacheAge=maxCacheAge, proxy=proxy, browser=browser, sessionID=sessionID, prevSignatureStr=signatureStr
             )
 
             htmlStrs.append(htmlStr);
@@ -1499,7 +1595,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
 def getUserDebugDir(sessionID: str) -> str:
     return os.path.join(debugDirPath, f"{sessionID}")
 
-async def get(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, browser: BrowserInfo|None = None, sessionID: str = "defaultSession", prevSignatureStr: str = "") -> tuple[str, str, str]:
+async def get(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, proxy: str = "", browser: BrowserInfo|None = None, sessionID: str = "defaultSession", prevSignatureStr: str = "") -> tuple[str, str, str]:
     signatureStr: str = ""
     htmlSrc: str = ""
     userDebugDir: str = getUserDebugDir(sessionID)
@@ -1527,7 +1623,7 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
             resp = await s.get(
                 "localhost" + ":18765" + "/browser", 
                 json={
-                    "browserNr": browser.browserNr, "sessionID": sessionID, "clearContext": prevSignatureStr == "", 
+                    "browserNr": browser.browserNr, "proxy": proxy, "sessionID": sessionID, "clearContext": prevSignatureStr == "", 
                     "debug": debug, "url": url, "actions": [[a.typ, a.v0, a.v1] for a in actions]
                 },
                 timeout=60
