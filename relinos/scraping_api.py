@@ -1639,7 +1639,7 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
                 
     elif not cachedFound:
         async with AsyncSession() as s:
-            r = await s.get(url, impersonate="chrome")
+            r = await s.get(url, impersonate="chrome", proxy=proxy)
             finalUrl = r.url
             htmlSrc = r.text
             contentType = r.headers.get("content-type", "")
