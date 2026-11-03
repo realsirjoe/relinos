@@ -1080,6 +1080,39 @@ async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime
             createPdfFromFolder(tempDir, os.path.join(debugDir, f"{int(time.time() * 1000)}_browser.pdf"))
         shutil.rmtree(tempDir)
 
+chromeExtensionToID = {
+    "proxy_extension": "mbdgblociamifagpokniibahfmnhaced"
+}
+
+async def awakeExtension(tab: Tab, extensionName: str, timeout: int = 10) -> str:
+    """ starts the service worker of an extension """ 
+    extensionID = chromeExtensionToID[extensionName]
+
+    response = await tab._execute_command({
+        "method": "ServiceWorker.startWorker",
+        "params": { "scopeURL": f"chrome-extension://{extensionID}/" }
+    })
+
+    targetID = ""
+    # Wait until its target is available
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        response = await tab._execute_command(
+            Command(method="Target.getTargets")
+        )
+
+        for target in response["result"]["targetInfos"]:
+            if target["url"].startswith("chrome-extension://" + extensionID):
+                targetID = target["targetId"]
+                break
+
+        if targetID: break
+        await asyncio.sleep(0.1)
+    if not targetID:
+        raise TimeoutError(f"Extension {extensionName} service worker could not be started in under {timeout}s")
+
+    return targetID
+
 class BrowserInfo:
     def __init__(self, id: str, publicAddress: str, privateAddress: str, browserNr: str):
         self.id = id
@@ -1210,38 +1243,11 @@ class BrowserManager:
             self.isOpen = True
             self.hideWindow() 
 
-            ################ proxy setup
-            response = await self.page._execute_command(
-                Command(method="Target.getTargets")
-            )
-
-            targetId = None
-            for candidate in response["result"]["targetInfos"]:
-                if candidate["url"].endswith("relinos_proxy.js"):
-                    targetId = candidate["targetId"]
-
-            if targetId == None:
-                raise APIException("Cannot change proxy, proxy switching extension could not be loaded, maybe try chromium browser")
-
-            """
-            response = await tab._execute_command(
-                Command(method="Target.attachToTarget", params={"targetId": targetId,"flatten": True})
-            )
-
-            sessionID = response["result"]["sessionId"]
-            print(sessionID)
-            """
-            #TODO creating a connection handler is inefficient and unneeded, 
-            # we can avoid it entirely by implementing support for sessionID on pydoll execute_command
-            self.extensionConn = ConnectionHandler(
-                connection_port= self.page._connection_handler._connection_port,
-                page_id=targetId
-            )
-            ################################
+            # this is required for proxy_extension since we need to wake the extension's service worker regularly  
+            await self.page._execute_command({"method": "ServiceWorker.enable"})
 
     async def close(self) -> None: 
         if not self.isClone and self.isOpen:
-            await self.extensionConn.close()
             try:
                 await self.browser.stop()
             except: 
@@ -1267,31 +1273,43 @@ class BrowserManager:
 
     async def setProxy(self, proxyStr: str = "") -> None:
         if self.proxy == proxyStr: return
-        if proxyStr:
-            parsed = urllib.parse.urlsplit(proxyStr)
-            if parsed.scheme not in ("http", "https", "socks4", "socks5"):
-                raise APIException("Unsupported proxy scheme")
-            if not parsed.hostname or not parsed.port:
-                raise APIException(f"Invalid proxy {proxyStr}")
 
-            result = await self.extensionConn.execute_command({
-                "method": "Runtime.evaluate",
-                "params": {
-                    "expression": f"setProxy('{parsed.scheme}', '{parsed.hostname}', {parsed.port})",
-                    "awaitPromise": True,
-                    "returnByValue": True
-                }
-            })
-        else:
-            # reset proxy
-            result = await self.extensionConn.execute_command({
-                "method": "Runtime.evaluate",
-                "params": {
-                    "expression": "chrome.proxy.settings.clear({scope: 'regular'})",
-                    "awaitPromise": True,
-                    "returnByValue": True
-                }
-            })
+        targetID = await awakeExtension(self.page, "proxy_extension")
+
+        #TODO creating a connection handler is inefficient and unneeded,
+        # we can avoid it entirely by implementing support for sessionID on pydoll execute_command
+        extensionConn = ConnectionHandler(
+            connection_port= self.page._connection_handler._connection_port,
+            page_id=targetID
+        )
+        try:
+            if proxyStr:
+                parsed = urllib.parse.urlsplit(proxyStr)
+                if parsed.scheme not in ("http", "https", "socks4", "socks5"):
+                    raise APIException("Unsupported proxy scheme")
+                if not parsed.hostname or not parsed.port:
+                    raise APIException(f"Invalid proxy {proxyStr}")
+
+                result = await extensionConn.execute_command({
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": f"setProxy('{parsed.scheme}', '{parsed.hostname}', {parsed.port})",
+                        "awaitPromise": True,
+                        "returnByValue": True
+                    }
+                })
+            else:
+                # reset proxy
+                result = await extensionConn.execute_command({
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": "chrome.proxy.settings.clear({scope: 'regular'})",
+                        "awaitPromise": True,
+                        "returnByValue": True
+                    }
+                })
+        finally:
+            await extensionConn.close()
 
         self.proxy = proxyStr
 

@@ -1,6 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Relinos Proxy",
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAojY2nl/B8t6vxdi8zlFdIJaUMQzEGw+I23cqoxW2y9sVV9zwS8/ehlAHyIHmCIQC16fzDNnXTseq+Bbn7HhiUWMfRa6x4fsMRwbakgao0jmXjnDLHmk5Pg/+ePiHmrPHo+jqFAXZF1Bt3pha+Q/p9cqbQt4RnWBzB/itKFpr1MMGL15xZXeXtFLNMPeF/QGpBHzJbaX8nYBEeTxOYAKckRQtwMq0taochtSzyhZwt2EP8IbD40W6vXddNyFS+8YVXrtOBwKEvfDwM+5QeZ2jV5qoMl2yyIDKonPMmMy3ApSmx84ZXrl4VXMTjhKbir4YUJfOOTXHa/JKOvA/M0Up9QIDAQAB",
     "version": "1.0",
     "permissions": ["proxy"],
     "background": {
