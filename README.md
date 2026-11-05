@@ -24,7 +24,7 @@ python3 relinos/install.py
 bash relinos/start.sh
 ```
 
-Once started you can render and interact with any site via **/get** 
+Once started, you can render and interact with any site via **/get** 
 The only required parameter is `url`
 
 Try this example in your terminal to verify that everything works. It extracts DuckDuckGo search results.
@@ -57,7 +57,7 @@ For example, each `result` could contain a `url`, `title`, and `description`.
 
 [More on Extractions](#extraction) 
 
-## Shared Web Interactions
+## Shared Site Routines
 
 You can import ready-to-use routines and extractions from the [Relinos Registry](https://github.com/realsirjoe/relinos_registry).
 
@@ -67,15 +67,15 @@ Simply copy a JSON file and put it in the body of the POST **/import** API endpo
 
 <img src="https://www.google.com/s2/favicons?domain=maps.google.com&sz=64" width="20" height="20" align="absmiddle"> **Google Maps Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/google_com_maps_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/google_com_maps_search_results.json)
 
-<img src="https://www.google.com/s2/favicons?domain=youtube.com&sz=64" width="20" height="20" align="absmiddle"> **Youtube Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/youtube_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/youtube_com_search_results.json)
+<img src="https://www.google.com/s2/favicons?domain=youtube.com&sz=64" width="20" height="20" align="absmiddle"> **YouTube Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/youtube_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/youtube_com_search_results.json)
 
 <img src="https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=64" width="20" height="20" align="absmiddle"> **DuckDuckGo Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/duckduckgo_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/duckduckgo_com_search_results.json)
 
 <img src="https://www.google.com/s2/favicons?domain=ebay.com&sz=64" width="20" height="20" align="absmiddle"> **eBay Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/ebay_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/ebay_com_search_results.json)
 
-<img src="https://www.google.com/s2/favicons?domain=skyscanner.com&sz=64" width="20" height="20" align="absmiddle"> **Skyscanner Flight Search** [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/skyscanner_com_flight_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/skyscanner_com_flights.json)
+<img src="https://www.google.com/s2/favicons?domain=skyscanner.com&sz=64" width="20" height="20" align="absmiddle"> **Skyscanner Flight Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/skyscanner_com_flight_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/skyscanner_com_flights.json)
 
-You can then for example perform an easy google search through **/do**
+You can then for example perform an easy Google search through **/do**
 
 ```bash
 curl --request GET \
@@ -88,9 +88,9 @@ curl --request GET \
 }'
 ```
 
-Because those saved interactions are parameterized they are easy to use in your applications or by LLMs. 
+Once imported, routines can be executed through the API by your applications or LLMs.
 
-# Building your Own Automations
+## Building your own Routines
 
 Relinos lets you combine browser interactions, pagination, caching, and structured extraction into a single JSON request, e.g:
 ```json
@@ -139,20 +139,20 @@ Relinos lets you combine browser interactions, pagination, caching, and structur
 |cache       | Picks a cached result if it was less than the specified duration ago     | `"600s"` or `"60m"` or `"2h"` or `"7d"` or `"1y"` |
 |debug       | Sends back x-debug-url header, visit the url to inspect and debug the interaction   | `true` or `false`    |
 |includeMeta | Wraps meta information around the response                               | `true` or `false`                       |
-|proxy       | Uses a supplied http, https or socks5 proxy, must include schema          | `http://127.0.0.1:1080` or `socks5://12.98.4.2:1988`          |
+|proxy       | Uses a supplied http, https or socks5 proxy, must include a scheme       | `http://127.0.0.1:1080` or `socks5://12.98.4.2:1988`          |
 |format      | The output format                                                        | `"html"` or `"md"` or `"json"`            |
-|actions     | A list of website interactions to perform, [see Automation](#automation) | `[["actionSelect", "//div[@id='email']", ""],["actionClick", "", ""]]`  |
-|pagination  | Paginates over multiple pages. It is a tuple containing the xpath for the next page url and the nr of pages to get | `["//a[@id='nextpage']", 2]`  |
-|extraction   | Specify a saved extractions name or a full extraction. Requires format: "json". Don't forget to escape regexes to keep the JSON valid, [see Extraction](#extraction) to apply to the final html  | `"google_com_search_results"`           |
+|actions     | A list of website interactions to perform, [see Interactions](#interactions) | `[["actionSelect", "//div[@id='email']", ""],["actionClick", "", ""]]`  |
+|pagination  | Paginates over multiple pages. It is a json array containing the xpath for the next page url and the nr of pages to get | `["//a[@id='nextpage']", 2]`  |
+|extraction   | Specify a saved extraction's name or a full extraction. Requires format: "json". Don't forget to escape regexes to keep the JSON valid, [see Extraction](#extraction) to apply to the final html  | `"google_com_search_results"`           |
 
 The response will return the final site after all interactions in the specified **format**. **includeMeta** will return JSON containing the final site inside the **data** key.
 
-# Automation
+## Interactions
 
 You can perform browser interactions, such as clicking or typing, through the `actions` parameter.
-`actions` are a list of tuples, each containing the action name and 2 parameters
+`actions` are a list of arrays, each containing the action name and 2 parameters
 
-`actionClick` and `actionType` interact with the current selected elements see actionSelect and actionFilter*
+`actionClick` and `actionType` interact with the current selected element see actionSelect and actionFilter*
 
 
 |Action                 |Param 1        |Param 2             |
@@ -205,7 +205,7 @@ Since you normally want your routine to take some input like a search term or cr
 
 It is recommended to use multiple routines for complex interactions, e.g. one for performing a search, one for buying a product, ... 
 
-Here a parametrized routine ready for saving
+Here's a parametrized routine ready for saving
 ```json
 {
     "name": "google_search",
@@ -246,9 +246,9 @@ You can delete via **DELETE /routines/your_routine_name**
 You can also view all routines via **/routines** and search via **/routines?q=search_term**
 
 
-# Extraction
+## Extraction
 
-One can transform any pages html into markdown, see `format`. 
+One can transform any page's html into markdown, see `format`. 
 
 Relinos also supports structured data extraction and validation with an extensible yet simple new format. 
 
@@ -278,12 +278,12 @@ An example XPathSchema looks like this
     }
 }
 ```
-This is a schema for google search.
+This is a schema for Google search.
 It describes the data shape through parent child relationships. 
-There is normal keys that describe the data itself and special keys starting with '$'. 
+There is regular keys that describe the data itself and special keys starting with '$'. 
 
 For example $xpath specifies what part of the html the data is in.
-This way one could specify how to find each google search result and inside each result how to find the title, url and description
+This way one could specify how to find each Google search result and inside each result how to find the title, url and description
 
 The format itself therefore already shows the final format the extracted data will have.
 It will create data like this
@@ -329,7 +329,7 @@ You can remove them with **DELETE /extractions/your_extraction_name**
 
 You can view all extractions with **/extractions** and search extractions with **/extractions?q=search_term**
 
-# Error Handling
+## Error Handling
 
 2xx — The request was successful.
 
