@@ -1,8 +1,7 @@
-
 <h1 align="center">Relinos</h1>
 
 <p align="center">
-  <strong>a programmable browser that does the browsing for you.</strong><br/>
+  <strong>a programmable browser that turns sites into APIs.</strong><br/>
   <sub>REST API to <strong>render</strong> and <strong>interact</strong> with sites, control <strong>multiple browsers</strong> and extract <strong>structured data</strong></sub>
 </p>
 
@@ -10,7 +9,7 @@
 
 # Getting Started
 
-Relinos runs on Linux and OSX
+Relinos runs on Linux and macOS
 
 **Install**
  
@@ -26,28 +25,112 @@ bash relinos/start.sh
 ```
 
 Once started you can render and interact with any site via **/get** 
-The only required parameter is **url**
+The only required parameter is `url`
 
+Try this example in your terminal to verify that everything works. It extracts DuckDuckGo search results.
+
+```bash
+curl -X GET http://localhost:8032/get \
+  -H 'Content-Type: application/json' \
+  --data-binary @- <<'JSON'
+{
+    "url": "https://duckduckgo.com/?q=dogs",
+    "render": true,
+    "format": "json",
+    "extraction": {
+        "results": {
+            "$xpath": "//*[@data-testid='result']",
+            "$list": true,
+            "url": { "$xpath": ".//*[@data-testid='result-extras-url-link']/@href" },
+            "title": { "$xpath": ".//*[@data-testid='result-title-a']" },
+            "description": { "$xpath": ".//*[@data-result='snippet']" }
+        }
+    }
+}
+JSON
 ```
+
+When using `"format": "json"`, an `extraction` defines the structure of the JSON you want to retrieve. You can use any key names, such as `results`, `title`, or `description`. The `$xpath` property specifies where to find the corresponding data on the page.
+
+Use `$list: true` to extract multiple matching elements instead of just one. You can also nest objects to extract more complex structures.
+For example, each `result` could contain a `url`, `title`, and `description`.
+
+[More on Extractions](#extraction) 
+
+## Shared Web Interactions
+
+You can import ready-to-use routines and extractions from the [Relinos Registry](https://github.com/realsirjoe/relinos_registry).
+
+Simply copy a JSON file and put it in the body of the POST **/import** API endpoint
+
+<img src="https://www.google.com/s2/favicons?domain=google.com&sz=64" width="20" height="20" align="absmiddle"> **Google Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/google_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/google_com_search_results.json)
+
+<img src="https://www.google.com/s2/favicons?domain=maps.google.com&sz=64" width="20" height="20" align="absmiddle"> **Google Maps Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/google_com_maps_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/google_com_maps_search_results.json)
+
+<img src="https://www.google.com/s2/favicons?domain=youtube.com&sz=64" width="20" height="20" align="absmiddle"> **Youtube Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/youtube_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/youtube_com_search_results.json)
+
+<img src="https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=64" width="20" height="20" align="absmiddle"> **DuckDuckGo Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/duckduckgo_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/duckduckgo_com_search_results.json)
+
+<img src="https://www.google.com/s2/favicons?domain=ebay.com&sz=64" width="20" height="20" align="absmiddle"> **eBay Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/ebay_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/ebay_com_search_results.json)
+
+<img src="https://www.google.com/s2/favicons?domain=skyscanner.com&sz=64" width="20" height="20" align="absmiddle"> **Skyscanner Flight Search** [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/skyscanner_com_flight_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/skyscanner_com_flights.json)
+
+You can then for example perform an easy google search through **/do**
+
+```bash
 curl --request GET \
-  --url http://0.0.0.0:8032/get \
+  --url http://0.0.0.0:8032/do \
   --header 'Content-Type: application/json' \
   --data '{
-    "url": "https://stackoverflow.com",
-    "render": true,
-    "debug": true,
-    "cache": "1d",
-    "actions": [
-        ["actionWaitForAndSelect", "//*[@data-gps-track='\''login.click'\'']", "5"],
-        ["actionClick", "", ""],
-        ["actionWaitForAndSelect", "//*[@id='\''email'\'']", "5"],
-        ["actionType", "myemail@example.com", ""],
-        ["actionWaitForAndSelect", "//*[@id='\''password'\'']", "5"],
-        ["actionType", "my password", ""],
-        ["actionKeyboardEnter", "", ""]
-    ]
+    "name": "google_com_search",
+    "params": { "search_term": "dog", "max_pages": "1"},
+    "format": "json"
 }'
 ```
+
+Because those saved interactions are parameterized they are easy to use in your applications or by LLMs. 
+
+# Building your Own Automations
+
+Relinos lets you combine browser interactions, pagination, caching, and structured extraction into a single JSON request, e.g:
+```json
+{
+    "url": "https://www.google.com",
+    "render": true,
+    "actions": [
+        ["actionWaitForAndSelect", "//textarea[@name='q']", "1"],
+        ["actionType","your search term",""],
+        ["actionSleep", "1", ""],
+        ["actionKeyboardEnter", "", ""],
+        ["actionSleep", "2", ""]
+    ],
+    "pagination": ["//*[@id='pnnext']", 2],
+    "cache": "1d",
+    "format": "json",
+    "extraction": {
+    "query": { "$xpath": "//*[@id='ti6dpd']" },
+    "result_count": {
+      "$xpath": "//div[@class='XhWQv qd6zO ApHyTb']",
+      "$extract": "\\D*(\\d[,\\d]*) .*"
+    },
+    "ai": {
+      "$xpath": "//*[@class='mZJni Dn7Fzd']", "$format": "md"
+    },
+    "results": {
+      "$xpath": "//div[contains(@class, 'MjjYud')]",
+      "$list": true,
+      "title": { "$xpath": ".//h3[contains(@class, 'LC20lb MBeuO DKV0Md')]" },
+      "url": { "$xpath": ".//a[contains(@class, 'zReHs')]/@href" },
+      "site": { "$xpath": ".//span[contains(@class, 'VuuXrf')]" },
+      "snippet": { "$xpath": ".//div[contains(@data-snf, 'nke7rc')]" }
+    },
+    "related_searches": {
+      "$xpath": "//*[@class='qR29te']", "$list": true
+    }
+  }
+}
+```
+
 
 |Parameter   |Description                                                               |Example                              |
 |------------|--------------------------------------------------------------------------|-------------------------------------|
@@ -60,38 +143,16 @@ curl --request GET \
 |format      | The output format                                                        | `"html"` or `"md"` or `"json"`            |
 |actions     | A list of website interactions to perform, [see Automation](#automation) | `[["actionSelect", "//div[@id='email']", ""],["actionClick", "", ""]]`  |
 |pagination  | Paginates over multiple pages. It is a tuple containing the xpath for the next page url and the nr of pages to get | `["//a[@id='nextpage']", 2]`  |
-|extraction   | Specify a saved extractions name or a full extraction. Requires format: "json". Dont forget to escape regexes to keep the json valid, [see Extraction](#extraction) to apply to the final html  | `"google_com_search_results"`           |
+|extraction   | Specify a saved extractions name or a full extraction. Requires format: "json". Don't forget to escape regexes to keep the JSON valid, [see Extraction](#extraction) to apply to the final html  | `"google_com_search_results"`           |
 
-The response will return the final site after all interactions in the specified **format**. **includeMeta** will return json containing the final site inside the **data** key.
+The response will return the final site after all interactions in the specified **format**. **includeMeta** will return JSON containing the final site inside the **data** key.
 
-# Shared Web Interactions
-
-Import ready-to-use routines and extractions from the [Relinos Registry](https://github.com/realsirjoe/relinos_registry).
-
-Copy a JSON file and put it in the body of the POST **/import** API endpoint
-
-<img src="https://www.google.com/s2/favicons?domain=google.com&sz=64" width="20" height="20" align="absmiddle"> **Google Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/google_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/google_com_search_results.json)
-
-<img src="https://www.google.com/s2/favicons?domain=maps.google.com&sz=64" width="20" height="20" align="absmiddle"> **Google Maps Search** | [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/google_com_maps_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/google_com_maps_search_results.json)
-
-<img src="https://www.google.com/s2/favicons?domain=youtube.com&sz=64" width="20" height="20" align="absmiddle"> **Youtube Search** [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/youtube_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/youtube_com_search_results.json)
-
-<img src="https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=64" width="20" height="20" align="absmiddle"> **Duckduckgo Search** [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/duckduckgo_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/duckduckgo_com_search_results.json)
-
-<img src="https://www.google.com/s2/favicons?domain=ebay.com&sz=64" width="20" height="20" align="absmiddle"> **Ebay Search** [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/ebay_com_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/ebay_com_search_results.json)
-
-<img src="https://www.google.com/s2/favicons?domain=skyscanner.com&sz=64" width="20" height="20" align="absmiddle"> **Skyscanner Flight Search** [Routine](https://github.com/realsirjoe/relinos_registry/blob/master/routines/skyscanner_com_flight_search.json) | [Extraction](https://github.com/realsirjoe/relinos_registry/blob/master/extractions/skyscanner_com_flights.json)
-
-# Browser Rendering
-
-On the web many sites are driven by javascript, this requires rendering sites in a browser.
-Relinos handles this under the hood using any Chromium browser like 'Google Chrome' if the **render** parameter is set to true
 # Automation
 
-One can send interactions like clicking or typing to the browser through the **actions** parameter. 
-**actions** are a list of tuples, each containing the action name and 2 parameters
+You can perform browser interactions, such as clicking or typing, through the `actions` parameter.
+`actions` are a list of tuples, each containing the action name and 2 parameters
 
-**actionClick** and **actionType** interact with the current selected elements see actionSelect and actionFilter*
+`actionClick` and `actionType` interact with the current selected elements see actionSelect and actionFilter*
 
 
 |Action                 |Param 1        |Param 2             |
@@ -121,11 +182,11 @@ This example searches a site
 
 Actions are followed by a maximum of 2 arguments depending on the action.
 
-To save your routines you name and parametrize it. 
+To save and later reuse your routines you name and parametrize it. 
 
 Simply start by changing **/get** to **POST /routines/your_routine_name**. 
 
-Since you normally want your routine to take some input like a search term or credentials, **params** specifies where to put those values. You can also add a **description** to both the routine and each param. If a routine already exists you must specify **overwrite=true** as query param to overwrite it
+Since you normally want your routine to take some input like a search term or credentials, `params` specifies where to put those values. You can also add a `description` to both the routine and each param. If a routine already exists you must specify **overwrite=true** as query param to overwrite it
 
 |Param Key      |Description                               |
 |---------------|------------------------------------------|
@@ -178,7 +239,7 @@ Here a parametrized routine ready for saving
 }
 ```
 
-You can run routines with **/do**, in the json body use **name** for the routine, specify the required parameters inside **params** e.g. "params": { "search_term": "How old is the earth" }
+You can run routines with **/do**, in the JSON body use `name` for the routine, specify the required parameters inside `params` e.g. `"params": { "search_term": "How old is the earth" }`
 
 You can delete via **DELETE /routines/your_routine_name**
 
@@ -187,11 +248,11 @@ You can also view all routines via **/routines** and search via **/routines?q=se
 
 # Extraction
 
-One can transform any pages html into markdown, see **format**. 
+One can transform any pages html into markdown, see `format`. 
 
-Relinos also support structured data extraction and validation with an extensible yet simple new format. 
+Relinos also supports structured data extraction and validation with an extensible yet simple new format. 
 
-XPathSchema structures data as a tree since most of the internet is represented in that form through html. The format is valid json and therefore easy to understand and reason about. 
+XPathSchema structures data as a tree since most of the internet is represented in that form through html. The format is valid JSON and therefore easy to understand and reason about. 
 
 An example XPathSchema looks like this
 
@@ -262,7 +323,7 @@ It will create data like this
 |$transform  | uses predefined functions to transform data                              | coming soon                         |
 |$extract    | extracts string data with a regex by keeping the first capturing group, make sure to escape '\\'  | `"(\\d[\\.\\d+]?)US$"`                   |
 
-You can add extractions if you want to reuse them later by reusing your **/get** or **/do** request body on **POST /extractions/your_extraction_name**, you can also add a **description** key to the body.  
+You can add extractions if you want to reuse them later by reusing your **/get** or **/do** request body on **POST /extractions/your_extraction_name**, you can also add a `description` key to the body.  
 
 You can remove them with **DELETE /extractions/your_extraction_name**
 
@@ -276,4 +337,4 @@ You can view all extractions with **/extractions** and search extractions with *
 
 5xx — The server encountered an error while processing the request.
 
-Errors are returned in json, **detail** contains further information on the error
+Errors are returned in JSON, `detail` contains further information on the error
