@@ -5,7 +5,7 @@ lxml==6.1.1
 lxml-stubs==0.5.1
 markdownify==1.2.2
 pydantic==2.13.4
--e git+https://src.tokahe.com/sergio/pydoll.git@69c7f9cba4eebaa70a9ce66cb2503d56f045b57d#egg=pydoll_python
+-e git+https://github.com/realsirjoe/pydoll.git@69c7f9cba4eebaa70a9ce66cb2503d56f045b57d#egg=pydoll_python
 requests==2.34.2
 uvicorn==0.48.0
 pillow==12.2.0
