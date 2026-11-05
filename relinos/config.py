@@ -1,6 +1,6 @@
 from os import environ, getenv
 
-mainPort = int(getenv("PORT", "8031"))
+mainPort = int(getenv("PORT", "8032"))
 
 serverName = environ.get("SERVER_NAME", f"http://127.0.0.1:{mainPort}")
 
