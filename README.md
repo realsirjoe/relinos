@@ -5,6 +5,7 @@
   <sub>REST API to <strong>render</strong> and <strong>interact</strong> with sites, control <strong>multiple browsers</strong> and extract <strong>structured data</strong></sub>
 </p>
 
+
 ![Relinos Demo](https://raw.githubusercontent.com/realsirjoe/designs/master/relinos_demo.gif)
 
 # Getting Started
@@ -338,3 +339,16 @@ You can view all extractions with **/extractions** and search extractions with *
 5xx — The server encountered an error while processing the request.
 
 Errors are returned in JSON, `detail` contains further information on the error
+
+## Configuration
+
+To change Relinos settings edit **~/.relinos/config**
+
+Each setting follows the format `VARIABLE=VALUE`.
+
+|variable         |Description                              |Example             |
+|-----------------|-----------------------------------------|--------------------|
+|PORT             | Port on which the api listens           | `1081`             |
+|BROWSER_POOL_SIZE| Number of browser instances to run      | `2` or `10`        |
+
+Restart Relinos for configuration changes to take effect.
