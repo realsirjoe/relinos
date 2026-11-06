@@ -183,7 +183,7 @@ This example searches a site
 
 Actions are followed by a maximum of 2 arguments depending on the action.
 
-To save and later reuse your routines you name and parametrize it. 
+To save and later reuse your routine you name and parametrize it. 
 
 Simply start by changing **/get** to **POST /routines/your_routine_name**. 
 
@@ -291,26 +291,26 @@ It will create data like this
 
 ```json
 {
-        "results": [
-            {
-                "url": "https://en.wikipedia.org/wiki/Ferrari_348",
-                "title": "Ferrari 348",
-                "description": "The Ferrari 348 (Type F119) is a mid-engined, V8-powered..."
-            },
-            {
-                "url": "https://www.autoscout24.hr/lst/ferrari/348",
-                "title": "85 Rezultati za Ferrari 348",
-                "description": null
-            }
-        ],
-        "people_also_search_for": [
-            "Ferrari 348 for sale",
-            "Ferrari 348 price",
-            "Ferrari 348 TS",
-            "Ferrari 348 GTB",
-            "Ferrari 348 Spider",
-            "Ferrari 348 GTS"
-        ]
+    "results": [
+        {
+            "url": "https://en.wikipedia.org/wiki/Ferrari_348",
+            "title": "Ferrari 348",
+            "description": "The Ferrari 348 (Type F119) is a mid-engined, V8-powered..."
+        },
+        {
+            "url": "https://www.autoscout24.hr/lst/ferrari/348",
+            "title": "85 Rezultati za Ferrari 348",
+            "description": null
+        }
+    ],
+    "people_also_search_for": [
+        "Ferrari 348 for sale",
+        "Ferrari 348 price",
+        "Ferrari 348 TS",
+        "Ferrari 348 GTB",
+        "Ferrari 348 Spider",
+        "Ferrari 348 GTS"
+    ]
 }
 ```
 
