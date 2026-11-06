@@ -3,6 +3,8 @@ from os import environ, getenv
 mainPort = int(getenv("PORT", "8032"))
 browserWorkerPort = int(getenv("BROWSER_WORKER_PORT", "18765"))
 
+browserPoolSize = int(getenv("BROWSER_POOL_SIZE", "2")) # nr of browsers always open waiting for requests
+
 serverName = environ.get("SERVER_NAME", f"http://127.0.0.1:{mainPort}")
 
 storageDirPath = f"{environ['HOME']}/.relinos/storage"
