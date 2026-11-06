@@ -123,6 +123,7 @@ def installChrome() -> None:
 
 def installXvfb():
     if platform.system().lower() != "linux": return
+    print("Installing Xvfb")
     if shutil.which("Xvfb"): return
 
     if shutil.which("apt-get"):
