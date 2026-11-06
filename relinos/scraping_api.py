@@ -36,7 +36,7 @@ import requests as requestsStd
 from lxml import html
 from fastapi import HTTPException
 
-from relinos.config import dbPath, storageDirPath, cacheDirPath, cacheDBPath, debugDirPath, dumpDirPath 
+from relinos.config import dbPath, storageDirPath, cacheDirPath, cacheDBPath, debugDirPath, dumpDirPath, browserWorkerPort
 from relinos.tools import createPdfFromFolder, addCaption, addRedBorder, createHtmlPagesViewer, generateSignature, serialize, deserialize, int_number_re, float_number_re, writeFileAtomic
 from relinos.parse import generateUrlName, parseHtml, JsonType
 from relinos.normalize import removeEmptyFields, fuseData
@@ -1639,7 +1639,7 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
         async with AsyncSession() as s:
             #TODO always assumes localhost for now, does not try publicAddress or privateAddress of BrowserInfo
             resp = await s.get(
-                "localhost" + ":18765" + "/browser", 
+                f"localhost:{browserWorkerPort}/browser",
                 json={
                     "browserNr": browser.browserNr, "proxy": proxy, "sessionID": sessionID, "clearContext": prevSignatureStr == "", 
                     "debug": debug, "url": url, "actions": [[a.typ, a.v0, a.v1] for a in actions]

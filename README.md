@@ -346,9 +346,10 @@ To change Relinos settings edit **~/.relinos/config**
 
 Each setting follows the format `VARIABLE=VALUE`.
 
-|variable         |Description                              |Example             |
-|-----------------|-----------------------------------------|--------------------|
-|PORT             | Port on which the api listens           | `1081`             |
-|BROWSER_POOL_SIZE| Number of browser instances to run      | `2` or `10`        |
+|variable            |Description                              |Example             |
+|--------------------|-----------------------------------------|--------------------|
+|PORT                | Port on which the api listens           | `1081`             |
+|BROWSER_WORKER_PORT | Port on which the browser worker listens| `18765`            |
+|BROWSER_POOL_SIZE   | Number of browser instances to run      | `2` or `10`        |
 
 Restart Relinos for configuration changes to take effect.

@@ -1,6 +1,7 @@
 from os import environ, getenv
 
 mainPort = int(getenv("PORT", "8032"))
+browserWorkerPort = int(getenv("BROWSER_WORKER_PORT", "18765"))
 
 serverName = environ.get("SERVER_NAME", f"http://127.0.0.1:{mainPort}")
 

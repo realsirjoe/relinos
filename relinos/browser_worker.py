@@ -22,18 +22,18 @@ import pydoll.exceptions
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, Request, Response
 
+from relinos.config import browserWorkerPort
 from relinos.scraping_api import BrowserManager, APIException, ScrapingException, getUserDebugDir, registerBrowser, Action, ActionLoop, browserOSX, browserLinuxXVFB
 from relinos.tools import getPublicIP, getPrivateIP
 
 logger = logging.getLogger(__name__)
 
 WORKER_ID_PATH = Path.home() / ".relinos" / "worker-id"
-PORT = 18765 # standard browser worker port
 BROWSER_POOL_SIZE = int(os.getenv("BROWSER_POOL_SIZE", "4")) # nr of browsers always open waiting for requests
 
 logger.info(
     f"Browser Worker Settings:\n" 
-    f"\tPORT={PORT}\n"
+    f"\tPORT={browserWorkerPort}\n"
     f"\tBROWSER_POOL_SIZE={BROWSER_POOL_SIZE}\n"
 )
 
