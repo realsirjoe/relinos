@@ -5,7 +5,7 @@ strict = true
 include = ["relinos*"]
 
 [tool.setuptools.package-data]
-scraping_api = ["data/*", "extensions/*"]
+relinos = ["data/*", "extensions/*"]
 
 [project]
 name = "relinos"
