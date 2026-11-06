@@ -109,26 +109,26 @@ Relinos lets you combine browser interactions, pagination, caching, and structur
     "cache": "1d",
     "format": "json",
     "extraction": {
-    "query": { "$xpath": "//*[@id='ti6dpd']" },
-    "result_count": {
-      "$xpath": "//div[@class='XhWQv qd6zO ApHyTb']",
-      "$extract": "\\D*(\\d[,\\d]*) .*"
-    },
-    "ai": {
-      "$xpath": "//*[@class='mZJni Dn7Fzd']", "$format": "md"
-    },
-    "results": {
-      "$xpath": "//div[contains(@class, 'MjjYud')]",
-      "$list": true,
-      "title": { "$xpath": ".//h3[contains(@class, 'LC20lb MBeuO DKV0Md')]" },
-      "url": { "$xpath": ".//a[contains(@class, 'zReHs')]/@href" },
-      "site": { "$xpath": ".//span[contains(@class, 'VuuXrf')]" },
-      "snippet": { "$xpath": ".//div[contains(@data-snf, 'nke7rc')]" }
-    },
-    "related_searches": {
-      "$xpath": "//*[@class='qR29te']", "$list": true
+        "query": { "$xpath": "//*[@id='ti6dpd']" },
+        "result_count": {
+            "$xpath": "//div[@class='XhWQv qd6zO ApHyTb']",
+            "$extract": "\\D*(\\d[,\\d]*) .*"
+        },
+        "ai": {
+            "$xpath": "//*[@class='mZJni Dn7Fzd']", "$format": "md"
+        },
+        "results": {
+            "$xpath": "//div[contains(@class, 'MjjYud')]",
+            "$list": true,
+            "title": { "$xpath": ".//h3[contains(@class, 'LC20lb MBeuO DKV0Md')]" },
+            "url": { "$xpath": ".//a[contains(@class, 'zReHs')]/@href" },
+            "site": { "$xpath": ".//span[contains(@class, 'VuuXrf')]" },
+            "snippet": { "$xpath": ".//div[contains(@data-snf, 'nke7rc')]" }
+        },
+        "related_searches": {
+            "$xpath": "//*[@class='qR29te']", "$list": true
+        }
     }
-  }
 }
 ```
 
