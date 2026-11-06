@@ -121,6 +121,23 @@ def installChrome() -> None:
         if os.path.exists(chromePath): shutil.rmtree(chromePath)
         shutil.move(unzipPath / f"chrome-{osFullName}", chromePath)
 
+def installXvfb():
+    if platform.system().lower() != "linux": return
+    if shutil.which("Xvfb"): return
+
+    if shutil.which("apt-get"):
+        cmd = ["apt-get", "install", "-y", "xvfb"]
+    elif shutil.which("dnf"):
+        cmd = ["dnf", "install", "-y", "xorg-x11-server-Xvfb"]
+    elif shutil.which("pacman"):
+        cmd = ["pacman", "-S", "--noconfirm", "xorg-server-xvfb"]
+    else:
+        raise RuntimeError("Unsupported Linux package manager. Please install Xvfb manually.")
+
+    if shutil.which("sudo"): cmd.insert(0, "sudo")
+
+    subprocess.run(cmd, check=True)
+
 if __name__ == "__main__":
     os.system('cls' if os.name == 'nt' else 'clear')
     print("Installing relinos\n")
@@ -131,6 +148,11 @@ if __name__ == "__main__":
         installChrome()
     except:
         print("Could not install Google Chrome, please install it yourself"); raise
+
+    try:
+        installXvfb()
+    except:
+        print("Could not install Xvfb, please install it manually.")
 
     _, err = getDefaultChromiumLocation()
     if err:
