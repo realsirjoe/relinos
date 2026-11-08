@@ -1,7 +1,6 @@
 <div align="center">
 
-**English** · [简体中文](README_zh.md) · [日本語](README_ja.md) · [Русский](README_ru.md) · [Português](README_pt.md)
-
+**English** | [简体中文](README_zh.md)
 # Relinos
 
 ### A programmable browser that turns sites into APIs.
