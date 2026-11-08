@@ -1,10 +1,12 @@
-<h1 align="center">Relinos</h1>
+<div align="center">
 
-<p align="center">
-  <strong>a programmable browser that turns sites into APIs.</strong><br/>
-  <sub>REST API to <strong>render</strong> and <strong>interact</strong> with sites, control <strong>multiple browsers</strong> and extract <strong>structured data</strong></sub>
-</p>
+# Relinos
 
+### A programmable browser that turns sites into APIs.
+
+REST API to **render** and **interact** with sites, control **multiple browsers** and extract **structured data**
+
+</div>
 
 ![Relinos Demo](https://raw.githubusercontent.com/realsirjoe/designs/master/relinos_demo.gif)
 
