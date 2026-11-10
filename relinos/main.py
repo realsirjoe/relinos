@@ -14,7 +14,7 @@ from starlette.types import Scope
 
 from relinos.config import debugDirPath, serverName
 
-from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, RoutineParam, Patch, addRoutine, kindStr, deleteRoutine
+from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, RoutineParam, addRoutine, kindStr, deleteRoutine
 from relinos.normalize import urlToDomain, keyCounts
 from relinos.parse import getCoverageScore, ParseException, JsonType
 from relinos.tools import serialize, deserialize
@@ -43,9 +43,9 @@ def parseActions(modelActions: list[ActionModel]|list[tuple[str, str, str]]) -> 
 
     return actions
 
-def parsePagination(modelPagination: tuple[str, int]|None) -> Pagination|None:
+def parsePagination(modelPagination: tuple[str, str]|None) -> Pagination|None:
     if modelPagination:
-        pagination = Pagination(modelPagination[0], int(modelPagination[1]))
+        pagination = Pagination(modelPagination[0], modelPagination[1])
     else:
         pagination = None
 
@@ -57,7 +57,7 @@ class GetRequestModel(BaseModel):
     url: str
     render: bool = False
     actions: list[ActionModel] | list[tuple[str, str, str]] = []
-    pagination: tuple[str, int] | None = None
+    pagination: tuple[str, str] | None = None
 
     format: str = "html"
     extraction: str|dict[str, JsonType] = ""
@@ -67,16 +67,9 @@ class GetRequestModel(BaseModel):
     includeMeta: bool = False
     proxy: str = ""
 
-class PatchModel(BaseModel):
-    keypath: str
-    start: int = -1
-    end: int = -1
-    transform: str = ""
-
 class RoutineParamModel(BaseModel):
     name: str
     description: str = ""
-    patches: list[PatchModel]
     default: str = ""
     kind: str = kindStr 
 
@@ -210,15 +203,10 @@ async def add_routine(request: Request, routineName: str, req: AddRoutineRequest
     # parsing routine params
     routineParams = []
     for pModel in req.params:
-        patches = []
-        for paModel in pModel.patches:
-            patches.append(
-                Patch(paModel.keypath, paModel.start, paModel.end, paModel.transform)  
-            )
         routineParams.append(
             RoutineParam(
                 name=pModel.name, description=pModel.description, 
-                patches=patches, default=pModel.default, kind=pModel.kind
+                default=pModel.default, kind=pModel.kind
             )
         )
 
@@ -234,14 +222,9 @@ async def add_routine(request: Request, routineName: str, req: AddRoutineRequest
         url=req.url, render=req.render, actions=actions, 
         pagination=pagination, extraction=req.extraction
     )
-
-    patchedRoutine = serialize(routine.patch({k.name:k.name.upper() for k in req.params}))
-    del patchedRoutine["name"]
-    del patchedRoutine["description"]
-    del patchedRoutine["params"]
-
     addRoutine(routine, overwrite=overwrite)
-    return JSONResponse({"example": patchedRoutine})
+
+    return JSONResponse(serialize(routine))
 
 @app.get("/routines/{routineName}", response_class=HTMLResponse)
 async def routine_details(request: Request, routineName: str) -> Response:

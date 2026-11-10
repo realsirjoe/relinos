@@ -108,7 +108,7 @@ Relinos lets you combine browser interactions, pagination, caching, and structur
         ["actionKeyboardEnter", "", ""],
         ["actionSleep", "2", ""]
     ],
-    "pagination": ["//*[@id='pnnext']", 2],
+    "pagination": ["//*[@id='pnnext']", "2"],
     "cache": "1d",
     "format": "json",
     "extraction": {
@@ -146,7 +146,7 @@ Relinos lets you combine browser interactions, pagination, caching, and structur
 |proxy       | Uses a supplied http, https or socks5 proxy, must include a scheme       | `http://127.0.0.1:1080` or `socks5://12.98.4.2:1988`          |
 |format      | The output format                                                        | `"html"` or `"md"` or `"json"`            |
 |actions     | A list of website interactions to perform, [see Interactions](#interactions) | `[["actionSelect", "//div[@id='email']", ""],["actionClick", "", ""]]`  |
-|pagination  | Paginates over multiple pages. It is a json array containing the xpath for the next page url and the nr of pages to get | `["//a[@id='nextpage']", 2]`  |
+|pagination  | Paginates over multiple pages. It is a json array containing the xpath for the next page url and the nr of pages to get | `["//a[@id='nextpage']", "2"]`  |
 |extraction   | Specify a saved extraction's name or a full extraction. Requires format: "json". Don't forget to escape regexes to keep the JSON valid, [see Extraction](#extraction) to apply to the final html  | `"google_com_search_results"`           |
 
 The response will return the final site after all interactions in the specified **format**. **includeMeta** will return JSON containing the final site inside the **data** key.
@@ -186,45 +186,46 @@ This example searches a site
 
 Actions are followed by a maximum of 2 arguments depending on the action.
 
+## Saving Routines
+
 To save and later reuse your routine you name and parametrize it. 
 
 Simply start by changing **/get** to **POST /routines/your_routine_name**. 
 
-Since you normally want your routine to take some input like a search term or credentials, `params` specifies where to put those values. You can also add a `description` to both the routine and each param. If a routine already exists you must specify **overwrite=true** as query param to overwrite it
+If you want your routine to take input use the `params` key. It takes a list of params, see below.
+You can also add a `description` to both the routine and each param. 
+If a routine already exists you must specify **overwrite=true** as query param to overwrite it
 
 |Param Key      |Description                               |
 |---------------|------------------------------------------|
 |name           | name of the parameter                    |
 |description    |                                          |
-|patches        | list of patches, see patch               |
 |default        | default value if parameter not present   |
 |kind           | e.g. "int", "float", "str", "date"       |
 
-|Patch Key      |Description                                                                     |
-|---------------|--------------------------------------------------------------------------------|
-|keypath        |dot notation describing where to put parameter                                  |
-|start          |Position in the string where insertion begins                                   |
-|end            |Position in the string until where the original content is replaced             |
-|transform      |Predefined function to apply to the parameter: url_quote or url_query_quote     |
+You can then use the params on `url`, `actions` or `pagination` inside a string 
+
+e.g. `"https://example.com?q=||search_term||"`
+
+The param name is enclosed inside `||` you may specify a transform via `||paramName:someTransformation||`
+
+Currently available transforms are `url_quote` and `url_query_quote`
 
 It is recommended to use multiple routines for complex interactions, e.g. one for performing a search, one for buying a product, ... 
 
 Here's a parametrized routine ready for saving
 ```json
 {
-    "name": "google_search",
     "description": "",
     "params": [
         {
             "name": "search_term",
             "description": "",
-            "patches": [{"keypath": "actions.1.v0"}],
             "default": ""
         },
         {
             "name": "max_pages",
             "description": "",
-            "patches": [{"keypath": "pagination.maxPages"}],
             "default": "",
             "kind": "int"
         }
@@ -233,12 +234,12 @@ Here's a parametrized routine ready for saving
     "render": true,
     "actions": [
         ["actionWaitForAndSelect", "//textarea[@name='q']", "1"],
-        ["actionType", "searchTerm", ""],
+        ["actionType", "||search_term||", ""],
         ["actionSleep", "1", ""],
         ["actionKeyboardEnter", "", ""],
         ["actionSleep", "2", ""]
     ],
-    "pagination": ["//*[@id='pnnext']", "3"],
+    "pagination": ["//*[@id='pnnext']", "||max_pages||"],
     "extraction": ""
 }
 ```
@@ -356,3 +357,12 @@ Each setting follows the format `VARIABLE=VALUE`.
 |BROWSER_POOL_SIZE   | Number of browser instances to run      | `2` or `10`        |
 
 Restart Relinos for configuration changes to take effect.
+
+## Older Relinos Versions
+
+If you're upgrading from Relinos 0.2 or earlier, routine parameters have been redesigned to be simpler, more powerful, and less prone to unintended behavior. 
+Run 
+
+```source ~/.relinos/env/bin/activate; python3 relinos/migrate_routines_v0_2.py``` 
+
+to automatically update your existing routines inside `~/.relinos`.

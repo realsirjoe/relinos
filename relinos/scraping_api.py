@@ -149,10 +149,10 @@ class Action:
 
 class Pagination:
     nextPageXPath: str
-    maxPages: int
-    clickDelaySeconds: int
+    maxPages: str # actually an int but needed for params to work #TODO
+    clickDelaySeconds: str # actually an int but needed for params to work
 
-    def __init__(self, nextPageXPath: str, maxPages: int, clickDelaySeconds: int = 3):
+    def __init__(self, nextPageXPath: str, maxPages: str, clickDelaySeconds: str = "3"):
         self.nextPageXPath = nextPageXPath
         self.maxPages = maxPages
         self.clickDelaySeconds = clickDelaySeconds
@@ -203,96 +203,24 @@ kindMap: dict[str, Callable[[Any], bool]]  = {
     kindStr: lambda v: isinstance(v, str)
 }
 
-def setNestedAttr(obj: Any, path: str, value: Any, startIndex: int=-1, endIndex: int=-1) -> bool:
-    """
-    sets nested attribute in JSON-like objects
-    can walk lists and dicts
-
-    example path: posts.2.comments.0.author
-
-    If startIndex or endIndex are specified, the existing string is modified by
-    replacing the slice [startIndex:endIndex] with `value`.
-
-    startIndex is inclusive, -1 means nothing before
-    endIndex is exclusive, -1 means nothing after
-
-    Examples:
-        "hello", value="peter", startIndex=2, endIndex=3
-        -> "hepeterlo"    # replaces "l"
-
-        "hello", value="peter", startIndex=-1, endIndex=0
-        -> "peterhello"   # insert before first character
-
-        "hello", value="peter", startIndex=5, endIndex=5
-        -> "hellopeter"   # append
-
-    return success
-    """
-    parts = path.split(".")
-
-    try:
-        for part in parts[:-1]:
-            if isinstance(obj, list): 
-                obj = obj[int(part)]
-            else: 
-                obj = obj[part]
-
-        last:int|str = parts[-1]
-        if isinstance(obj, list):
-            last = int(last)
-
-        prefix = ""
-        suffix = ""
-        if startIndex >= 0:
-            prefix = obj[last][:startIndex]
-        if endIndex >= 0:
-            suffix = obj[last][endIndex:]
-
-        obj[last] = prefix + value + suffix
-        return True
-    except:
-        return False
-
-class Patch:
-    keypath: str
-    start: int
-    end: int
-    transform: str
-
-    def __init__(self, keypath: str, start: int = -1, end: int = -1, transform: str = ""):
-        """
-        A patch describes an incision of a transformed value
-
-        keypath: describes where to insert in json e.g. person.posts.2.comments.1.text
-        start:      repacing at startIndex -1 means starts at beginning, start is inclusive
-        end:        replacing at endIndex -1 means ends at the end, end is exclusive, see setNestedAttr
-        transform: to map the parameter see transformMap
-        """
-        self.keypath = keypath
-        self.start = start
-        self.end = end
-        self.transform = transform
+validRoutineParamName = r"[a-zA-Z_][a-zA-Z_0-9]*"
 
 class RoutineParam:
     name: str
     description: str
-    patches: list[Patch]
     default: str
     kind: str
 
-    def __init__(self, name: str, description: str, patches: list[Patch], default: str = "", kind: str = kindStr):
+    def __init__(self, name: str, description: str, default: str = "", kind: str = kindStr):
         '''
-        RoutineParam's monkeypatch the Routine on .do(), see Patch
+        RoutineParam's patches the Routine on .patch() and replaces ||paramName:someTransformation||
         kind checks if the actual param is int like, float like, ...
-
-        Patch start and end positions refer to the initial attribute positions, 
-        which means if a patch changes an attributes length by replacing something the other patches will be adjusted
-        see Routine.do
         '''
+        if not re.fullmatch(validRoutineParamName, name):
+            raise APIException(f"Invalid RoutineParam.name {name}")
+
         self.name = name
         self.description = description
-
-        self.patches = patches 
         self.default = default
         self.kind = kind
 
@@ -310,11 +238,12 @@ class Routine:
     actions: list[Action]
     pagination: Pagination | None
     extraction: str|dict[str, JsonType]
+    version: str
 
     def __init__(
             self, name: str, description: str, params: list[RoutineParam], 
             url: str, render: bool, actions: list[Action], pagination: Pagination | None, 
-            extraction: str|dict[str, JsonType] = "",
+            extraction: str|dict[str, JsonType] = "", version: str = "0.3"
         ):
         """
         Routines are reusable functions that interact with the web
@@ -323,18 +252,11 @@ class Routine:
         """
         # names are case insensitive
         self.name = name.lower()
+        self.version = version
         self.description = description
 
         # prefix to avoid collisions with extractions or other possible future types in object directory
         self.id = sha1("r_" + self.name)
-
-        # checks if patches use valid top level keys 
-        patchKeypaths = [m.keypath for p in params for m in p.patches]
-        topLevelKeys = {m.split(".")[0] for m in patchKeypaths}
-        supportedTopLevelKeys = ["url", "actions", "pagination"]
-        for key in topLevelKeys:
-            if key not in supportedTopLevelKeys:
-                raise ValueError(f"Unsupported key can only modify {','.join(supportedTopLevelKeys)}")
 
         # checks for duplicate params
         paramNames = [p.name for p in params]
@@ -363,30 +285,50 @@ class Routine:
         return f'{self.name}({",".join([p.name + ("?" if p.default else "") for p in self.paramsMap.values()])})'
 
     def patch(self, params: dict[str, str]) -> Routine:
+        reParamSubstitute = r"\|\|" + validRoutineParamName + "(:" + validRoutineParamName + r")?\|\|"
         try:
             serializedRoutine = serialize(self)
         except:
             raise APIException("Internal Error, Malformed routine")
 
-        adjustments: dict[str, int] = {}
-        for k in self.paramsMap.keys():
-            for p in self.paramsMap[k].patches:
-                value = params[k]
-                if p.transform: 
-                    if p.transform not in transformMap:
-                        raise APIException(f"Unknown transform '{p.transform}' for param '{p.keypath}'")
-                    value = transformMap[p.transform](value)
-                adjustment = adjustments.get(p.keypath, 0)
-                # danger if value is a reference type
-                success = setNestedAttr(serializedRoutine, p.keypath, value, p.start+adjustment, p.end+adjustment)
-                if not success: 
-                    raise APIException(f"Unable to set routine attribute with keypath '{p.keypath}'")
+        def walk(value, isRoot=True, keypath=""):
+            """ walks routine and looks for possible patches/replacements """
+            if isinstance(value, dict):
+                for key, val in value.items():
+                    if isRoot and key not in ["url", "actions", "pagination"]: continue
+                    value[key] = walk(val, isRoot=False, keypath=keypath + "." + key)
+            elif isinstance(value, list):
+                for i, item in enumerate(value):
+                    value[i] = walk(item, isRoot=False, keypath=keypath + f".[{i}]")
+            elif isinstance(value, str):
+                # this loops twice if same param appears in str twice, though it has already been
+                # replaced so the second time it wont have anything to replace
+                matches = list(re.finditer(reParamSubstitute, value))
+                for match in matches:
+                    expression = match.group()
+                    v = expression.strip("|")
+                    arr = v.split(":")
+                    paramName = arr[0]
+                    transforms = arr[1:]
 
-                # start and end patch positions are based on an attributes initial length 
-                # so we need to adjust after changing an attribute
-                oldLen = p.end - p.start
-                newLen = len(value)
-                adjustments[p.keypath] = adjustments.get(p.keypath, 0) + (newLen - oldLen)
+                    if paramName not in params:
+                        raise APIException(f"Unknown parameter '{paramName}' at '{keypath}'")
+
+                    v = params[paramName]
+                    for transform in transforms:
+                        if transform not in transformMap:
+                            raise APIException(f"Unknown transform '{transform}' for param '{paramName}' at '{keypath}'")
+                        v = transformMap[transform](v)
+
+                    # avoids recursive replacement edgecase
+                    if re.search(reParamSubstitute, v):
+                        raise APIException(f"param {paramName} has unsupported value '{v}', ||someName|| is unsupported inside values")
+                    value = value.replace(expression, v)
+
+            return value
+
+        walk(serializedRoutine)
+
         try:
             routineCopy: Routine = deserialize(Routine, serializedRoutine)
         except:
@@ -413,6 +355,9 @@ class Routine:
             - md format  : all pages will be joined with a long line of --------- in between
             - json format: it will be "fused", see fuseData
         """
+        if self.version != "0.3": 
+            raise APIException(f"You are running the unsupported routine {self.name} with version ({self.version}, look at migrate in README.md")
+
         if params is None: params = {}
         else: params = params.copy()
 
@@ -454,7 +399,7 @@ class Routine:
         if len(htmlStrs) == 0:
             raise APIException("No pages returned")
 
-        isMultiPage = routineCopy.pagination is not None and routineCopy.pagination.maxPages > 1
+        isMultiPage = routineCopy.pagination is not None and int(routineCopy.pagination.maxPages) > 1
 
         htmlStr = htmlStrs[-1]
         finalUrl = finalUrls[-1]
@@ -854,16 +799,16 @@ def getRoutine(name: str, version: int = -1) -> tuple[Routine | None, bool]:
 
     return deserialize(Routine, json.loads(rawRoutine)), True
 
-def searchRoutines(term: str) -> list[dict[str, Any]]:
+def searchRoutines(term: str, limit=100) -> list[dict[str, Any]]:
     with sqlite3.connect(dbPath) as conn:
         conn.row_factory = sqlite3.Row
         if term:
             rows = conn.execute(
-                "SELECT name, description FROM routines WHERE name LIKE '%' || ? || '%' OR description LIKE '%' || ? || '%' LIMIT 100",
-                (term,term,)
+                "SELECT name, description FROM routines WHERE name LIKE '%' || ? || '%' OR description LIKE '%' || ? || '%' LIMIT ?",
+                (term,term,limit)
             ).fetchall()
         else:
-            rows = conn.execute("SELECT name, description FROM routines LIMIT 100").fetchall()
+            rows = conn.execute("SELECT name, description FROM routines LIMIT ?", (limit,)).fetchall()
         return [dict(row) for row in rows]
 
 reXPathAxis = r"\.?\/?\/"
@@ -1571,7 +1516,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
         # create virtual cache entry for first page
         setCache(multiSignatureStrRoot + "::::" + str(1), "", "", "")
 
-        for i in range(pagination.maxPages-1):
+        for i in range(int(pagination.maxPages)-1):
             actions = []
             url = ""
             if render:
@@ -1586,7 +1531,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
                 url = selection[0].attrib.get("href", "")
                 if url == "": break
 
-                await asyncio.sleep(pagination.clickDelaySeconds)
+                await asyncio.sleep(int(pagination.clickDelaySeconds))
 
             # signatureStr of previous page is to cache in combination with all previous pages urls, actions, ...
 
