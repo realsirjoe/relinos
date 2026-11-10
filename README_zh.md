@@ -366,7 +366,7 @@ XPathSchema 以树形结构组织数据，因为互联网中的大多数内容�
 运行以下命令，即可自动更新 `~/.relinos` 中已有的例程：
 
 ```sh
-source ~/.relinos/env/bin/activate; python3 relinos/migrate_routines_v0_2.py
+source ~/.relinos/env/bin/activate; python3 -m relinos.migrate_routines_v0_2
 ```
 
 ---

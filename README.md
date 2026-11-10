@@ -363,6 +363,6 @@ Restart Relinos for configuration changes to take effect.
 If you're upgrading from Relinos 0.2 or earlier, routine parameters have been redesigned to be simpler, more powerful, and less prone to unintended behavior. 
 Run 
 
-```source ~/.relinos/env/bin/activate; python3 relinos/migrate_routines_v0_2.py``` 
+```source ~/.relinos/env/bin/activate; python3 -m relinos.migrate_routines_v0_2``` 
 
 to automatically update your existing routines inside `~/.relinos`.
