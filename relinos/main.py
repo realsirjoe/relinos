@@ -222,6 +222,10 @@ async def add_routine(request: Request, routineName: str, req: AddRoutineRequest
         url=req.url, render=req.render, actions=actions, 
         pagination=pagination, extraction=req.extraction
     )
+
+    # this patches the routine to check if transforms are valid
+    routine.patch({k.name:k.name for k in req.params})
+
     addRoutine(routine, overwrite=overwrite)
 
     return JSONResponse(serialize(routine))
