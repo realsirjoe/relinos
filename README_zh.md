@@ -109,7 +109,7 @@ Relinos 可将浏览器交互、分页、缓存和结构化提取组合为单个
         ["actionKeyboardEnter", "", ""],
         ["actionSleep", "2", ""]
     ],
-    "pagination": ["//*[@id='pnnext']", 2],
+    "pagination": ["//*[@id='pnnext']", "2"],
     "cache": "1d",
     "format": "json",
     "extraction": {
@@ -147,7 +147,7 @@ Relinos 可将浏览器交互、分页、缓存和结构化提取组合为单个
 |proxy       | 使用提供的 http、https 或 socks5 代理；必须包含协议方案       | `http://127.0.0.1:1080` 或 `socks5://12.98.4.2:1988`          |
 |format      | 输出格式                                                        | `"html"`、`"md"` 或 `"json"`            |
 |actions     | 要执行的网站交互列表，[参见交互](#交互) | `[["actionSelect", "//div[@id='email']", ""],["actionClick", "", ""]]`  |
-|pagination  | 对多个页面进行分页。它是一个 JSON 数组，包含下一页 URL 的 XPath 和要获取的页数 | `["//a[@id='nextpage']", 2]`  |
+|pagination  | 对多个页面进行分页。它是一个 JSON 数组，包含下一页 URL 的 XPath 和要获取的页数 | `["//a[@id='nextpage']", "2"]`  |
 |extraction   | 指定已保存提取配置的名称或完整的提取配置。需要 `format: "json"`。别忘了对正则表达式进行转义以保证 JSON 有效；[参见提取](#提取) 以应用于最终 HTML  | `"google_com_search_results"`           |
 
 响应将以指定的 **format** 返回完成全部交互后的网站。**includeMeta** 会返回 JSON，其中最终网站内容位于 **data** 键中。
@@ -187,45 +187,46 @@ Relinos 可将浏览器交互、分页、缓存和结构化提取组合为单个
 
 每个操作最多可带 2 个参数，具体取决于操作类型。
 
-要保存例程以便后续复用，需要为其命名并进行参数化。
+## 保存例程
+
+为便于后续复用，可将例程保存为带参数的模板。
 
 只需将 **/get** 改为 **POST /routines/your_routine_name**。
 
-由于通常会希望例程接收搜索词或凭据等输入，`params` 用于指定这些值应填入的位置。你也可以为例程及每个参数添加 `description`。如果例程已存在，必须指定查询参数 **overwrite=true** 才能覆盖它。
+如需让例程接收输入，请使用 `params` 键。它接受一个参数列表，详见下表。
+你可以为例程和每个参数添加 `description`。
+如果同名例程已存在，必须在查询参数中指定 **overwrite=true** 才能覆盖。
 
 |参数键      |说明                               |
 |---------------|------------------------------------------|
 |name           | 参数名称                    |
-|description    |                                          |
-|patches        | 补丁列表，参见 patch               |
-|default        | 未提供参数时使用的默认值   |
-|kind           | 例如 `"int"`、`"float"`、`"str"`、`"date"`       |
+|description    | 参数说明                                 |
+|default        | 未提供该参数时使用的默认值               |
+|kind           | 例如 `"int"`、`"float"`、`"str"`、`"date"` |
 
-|补丁键      |说明                                                                     |
-|---------------|--------------------------------------------------------------------------------|
-|keypath        |使用点记法描述参数应填入的位置                                  |
-|start          |字符串中开始插入的位置                                   |
-|end            |原有内容被替换到的位置             |
-|transform      |应用于参数的预定义函数：url_quote 或 url_query_quote     |
+随后可在 `url`、`actions` 或 `pagination` 的字符串中使用这些参数。
+
+例如：`"https://example.com?q=||search_term||"`
+
+参数名须用 `||` 包裹；也可以通过 `||paramName:someTransformation||` 指定转换函数。
+
+目前可用的转换函数为 `url_quote` 和 `url_query_quote`。
 
 对于复杂交互，建议使用多个例程，例如一个用于搜索，另一个用于购买产品，等等。
 
 以下是一个可直接保存的参数化例程：
 ```json
 {
-    "name": "google_search",
     "description": "",
     "params": [
         {
             "name": "search_term",
             "description": "",
-            "patches": [{"keypath": "actions.1.v0"}],
             "default": ""
         },
         {
             "name": "max_pages",
             "description": "",
-            "patches": [{"keypath": "pagination.maxPages"}],
             "default": "",
             "kind": "int"
         }
@@ -234,12 +235,12 @@ Relinos 可将浏览器交互、分页、缓存和结构化提取组合为单个
     "render": true,
     "actions": [
         ["actionWaitForAndSelect", "//textarea[@name='q']", "1"],
-        ["actionType", "searchTerm", ""],
+        ["actionType", "||search_term||", ""],
         ["actionSleep", "1", ""],
         ["actionKeyboardEnter", "", ""],
         ["actionSleep", "2", ""]
     ],
-    "pagination": ["//*[@id='pnnext']", "3"],
+    "pagination": ["//*[@id='pnnext']", "||max_pages||"],
     "extraction": ""
 }
 ```
@@ -357,6 +358,16 @@ XPathSchema 以树形结构组织数据，因为互联网中的大多数内容�
 |BROWSER_POOL_SIZE   | 要运行的浏览器实例数量      | `2` 或 `10`        |
 
 重启 Relinos 后，配置更改才会生效。
+
+## 旧版 Relinos
+
+如果你正从 Relinos 0.2 或更早版本升级，例程参数机制现已重新设计：更易于理解、更灵活，也能减少意外行为。
+
+运行以下命令，即可自动更新 `~/.relinos` 中已有的例程：
+
+```sh
+source ~/.relinos/env/bin/activate; python3 relinos/migrate_routines_v0_2.py
+```
 
 ---
 
