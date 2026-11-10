@@ -291,6 +291,7 @@ class Routine:
         except:
             raise APIException("Internal Error, Malformed routine")
 
+        unusedParams = set(params.keys())
         def walk(value, isRoot=True, keypath=""):
             """ walks routine and looks for possible patches/replacements """
             if isinstance(value, dict):
@@ -315,6 +316,8 @@ class Routine:
                         raise APIException(f"Unknown parameter '{paramName}' at '{keypath}'")
 
                     v = params[paramName]
+                    if paramName in unusedParams: unusedParams.remove(paramName)
+
                     for transform in transforms:
                         if transform not in transformMap:
                             raise APIException(f"Unknown transform '{transform}' for param '{paramName}' at '{keypath}'")
@@ -328,6 +331,8 @@ class Routine:
             return value
 
         walk(serializedRoutine)
+        if unusedParams:
+            raise APIException(f"Unsued params: {','.join(unusedParams)}")
 
         try:
             routineCopy: Routine = deserialize(Routine, serializedRoutine)

@@ -9,5 +9,5 @@ relinos = ["data/*", "extensions/*"]
 
 [project]
 name = "relinos"
-version = "0.3.0"
+version = "0.3.1"
 description = "Self hosted scraping api"
