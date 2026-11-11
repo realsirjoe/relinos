@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 from relinos.scraping_api import searchRoutines, transformMap, Routine, sha1, addRoutine, validRoutineParamName
-from relinos.tools import deserialize
+from relinos.tools import deserialize, serialize
 from relinos.config import storageDirPath
 
 def setNestedAttr(obj: Any, path: str, value: Any, startIndex: int=-1, endIndex: int=-1) -> bool:
@@ -61,8 +61,11 @@ def setNestedAttr(obj: Any, path: str, value: Any, startIndex: int=-1, endIndex:
     except:
         return False
 
-def updateRoutine(routine: dict) -> Routine:
+def updateRoutineV1(routine: dict) -> dict:
     supportedTopLevelKeys = ["url", "actions", "pagination"]
+
+    if routine.get("pagination"):
+        routine["pagination"]["maxPages"] = str(routine["pagination"]["maxPages"])
 
     paramsMap = { p["name"]: p for p in routine["params"] }
     if len(paramsMap) != len(routine["params"]):
@@ -95,29 +98,52 @@ def updateRoutine(routine: dict) -> Routine:
             oldLen = p["end"] - p["start"]
             newLen = len(value)
             adjustments[p["keypath"]] = adjustments.get(p["keypath"], 0) + (newLen - oldLen)
-    try:
-        for p in routine["params"]: del p["patches"] # deleting legacy 'patches' key
-        routineCopy: Routine = deserialize(Routine, routine)
-    except:
-        raise Exception("Internal Error, Malformed routine")
 
-    return routineCopy
 
+    for p in routine["params"]: del p["patches"] # deleting legacy 'patches' key
+    routine["version"] = "0.3"
+
+    return routine
+
+def updateRoutineV2(routine: dict) -> dict:
+    paramsMap = { p["name"]: p for p in routine["params"] }
+    if len(paramsMap) != len(routine["params"]):
+        raise Exception("Duplicate parameter names, fix first")
+
+    for key in paramsMap.keys():
+        del paramsMap[key]["name"]
+
+    routine["params"] = paramsMap
+    routine["version"] = "0.4"
+
+    return routine
+    
 def main():
     for r in searchRoutines("", limit=-1):
         print(f"Converting {r['name']}")
         id = sha1("r_" + r["name"])
         routinePath = Path(storageDirPath) / id[:2] / id[2:] / "000.json"
+        print(routinePath)
 
-        with open(routinePath) as f: oldRoutine = json.loads(f.read())
+        with open(routinePath) as f: rawRoutine = json.loads(f.read())
+        if rawRoutine.get("version", "") == "0.4": 
+            print("already converted")
+            continue
 
-        if oldRoutine.get("pagination"):
-            oldRoutine["pagination"]["maxPages"] = str(oldRoutine["pagination"]["maxPages"])
+        if not rawRoutine.get("version"): # v1 has no version nr
+            rawRoutine = updateRoutineV1(rawRoutine)
 
-        if oldRoutine.get("version"): print("Already converted")
-        else:
-            patchedRoutine = updateRoutine(oldRoutine)
-            addRoutine(patchedRoutine, True)
+        if rawRoutine["version"] == "0.3": # v2 has version of relinos
+            rawRoutine = updateRoutineV2(rawRoutine)
+
+        # deserialize it to newest version
+        try:
+            routine: Routine = deserialize(Routine, rawRoutine)
+        except:
+            raise Exception("Internal Error, Malformed routine")
+
+        #print(json.dumps(serialize(routine), indent=4, ensure_ascii=True))
+        addRoutine(routine, True)
 
         print("----")
 

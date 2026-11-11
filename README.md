@@ -188,17 +188,18 @@ Actions are followed by a maximum of 2 arguments depending on the action.
 
 ## Saving Routines
 
-To save and later reuse your routine you name and parametrize it. 
+To save and later reuse a routine, give it a name and parameters.
 
-Simply start by changing **/get** to **POST /routines/your_routine_name**. 
+Start by changing **/get** to **POST /routines/your_routine_name**. 
 
-If you want your routine to take input use the `params` key. It takes a list of params, see below.
-You can also add a `description` to both the routine and each param. 
+To accept input, add a `params` object. Each key is the parameter name, and its value defines that parameter’s `description`, `default`, and/or `kind`
+
+You can also add a `description` to the routine itself. 
+
 If a routine already exists you must specify **overwrite=true** as query param to overwrite it
 
 |Param Key      |Description                               |
 |---------------|------------------------------------------|
-|name           | name of the parameter                    |
 |description    |                                          |
 |default        | default value if parameter not present   |
 |kind           | e.g. "int", "float", "str", "date"       |
@@ -217,19 +218,17 @@ Here's a parametrized routine ready for saving
 ```json
 {
     "description": "",
-    "params": [
-        {
-            "name": "search_term",
+    "params": {
+        "search_term": {
             "description": "",
             "default": ""
         },
-        {
-            "name": "max_pages",
+        "max_pages": {
             "description": "",
             "default": "",
             "kind": "int"
         }
-    ],
+    },
     "url": "https://www.google.com",
     "render": true,
     "actions": [
@@ -360,9 +359,9 @@ Restart Relinos for configuration changes to take effect.
 
 ## Older Relinos Versions
 
-If you're upgrading from Relinos 0.2 or earlier, routine parameters have been redesigned to be simpler, more powerful, and less prone to human errors. 
+If you're upgrading from Relinos 0.3, 0.2 or earlier, routine parameters have been redesigned to be simpler, more powerful, and less prone to human errors. 
 Run 
 
-```source ~/.relinos/env/bin/activate; python3 -m relinos.migrate_routines_v0_2``` 
+```source ~/.relinos/env/bin/activate; python3 -m relinos.migrate_routines``` 
 
-to automatically update your existing routines inside `~/.relinos`.
+to automatically update your existing routines inside `~/.relinos` to the newest version.

@@ -189,17 +189,18 @@ Relinos 可将浏览器交互、分页、缓存和结构化提取组合为单个
 
 ## 保存例程
 
-为便于后续复用，可将例程保存为带参数的模板。
+如需保存例程以便日后复用，请为它命名并定义参数。
 
 只需将 **/get** 改为 **POST /routines/your_routine_name**。
 
-如需让例程接收输入，请使用 `params` 键。它接受一个参数列表，详见下表。
-你可以为例程和每个参数添加 `description`。
-如果同名例程已存在，必须在查询参数中指定 **overwrite=true** 才能覆盖。
+如需让例程接收输入，请添加 `params` 对象。每个键都是参数名，对应的值可定义该参数的 `description`、`default` 和/或 `kind`。
+
+也可以为例程本身添加 `description`。
+
+如果同名例程已存在，必须在查询参数中指定 **overwrite=true** 才能覆盖它。
 
 |参数键      |说明                               |
 |---------------|------------------------------------------|
-|name           | 参数名称                    |
 |description    | 参数说明                                 |
 |default        | 未提供该参数时使用的默认值               |
 |kind           | 例如 `"int"`、`"float"`、`"str"`、`"date"` |
@@ -218,19 +219,17 @@ Relinos 可将浏览器交互、分页、缓存和结构化提取组合为单个
 ```json
 {
     "description": "",
-    "params": [
-        {
-            "name": "search_term",
+    "params": {
+        "search_term": {
             "description": "",
             "default": ""
         },
-        {
-            "name": "max_pages",
+        "max_pages": {
             "description": "",
             "default": "",
             "kind": "int"
         }
-    ],
+    },
     "url": "https://www.google.com",
     "render": true,
     "actions": [
@@ -361,14 +360,10 @@ XPathSchema 以树形结构组织数据，因为互联网中的大多数内容�
 
 ## 旧版 Relinos
 
-如果你正从 Relinos 0.2 或更早版本升级，例程参数机制现已重新设计：更易于理解、更灵活，也能减少意外行为。
+如果你正从 Relinos 0.3、0.2 或更早版本升级，例程参数机制已重新设计，更易于理解、功能更强，也更不易出错。
 
 运行以下命令，即可自动更新 `~/.relinos` 中已有的例程：
 
 ```sh
-source ~/.relinos/env/bin/activate; python3 -m relinos.migrate_routines_v0_2
+source ~/.relinos/env/bin/activate; python3 -m relinos.migrate_routines
 ```
-
----
-
-> 本文档由 LLM 翻译。请以 [README.md](README.md) 中的原始信息为准。

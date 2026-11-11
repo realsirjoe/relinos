@@ -14,7 +14,7 @@ from starlette.types import Scope
 
 from relinos.config import debugDirPath, serverName
 
-from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, RoutineParam, addRoutine, kindStr, deleteRoutine
+from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, addRoutine, kindStr, deleteRoutine
 from relinos.normalize import urlToDomain, keyCounts
 from relinos.parse import getCoverageScore, ParseException, JsonType
 from relinos.tools import serialize, deserialize
@@ -68,14 +68,15 @@ class GetRequestModel(BaseModel):
     proxy: str = ""
 
 class RoutineParamModel(BaseModel):
-    name: str
     description: str = ""
     default: str = ""
     kind: str = kindStr 
 
+    model_config = ConfigDict(extra="forbid")
+
 class AddRoutineRequestModel(GetRequestModel):
     description: str = ""
-    params: list[RoutineParamModel]
+    params: dict[str, RoutineParamModel]
 
 class RoutineRequestModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -201,13 +202,12 @@ async def search_routines(q: str = "") -> Response:
 @app.post("/routines/{routineName}")
 async def add_routine(request: Request, routineName: str, req: AddRoutineRequestModel, overwrite: bool = Query(False)) -> Response:
     # parsing routine params
-    routineParams = []
-    for pModel in req.params:
-        routineParams.append(
-            RoutineParam(
-                name=pModel.name, description=pModel.description, 
-                default=pModel.default, kind=pModel.kind
-            )
+    routineParams = {}
+    for pName in req.params.keys():
+        pModel = req.params[pName]
+        routineParams[pName] = RoutineParam(
+            description=pModel.description, 
+            default=pModel.default, kind=pModel.kind
         )
 
     actions = parseActions(req.actions) 
@@ -224,7 +224,7 @@ async def add_routine(request: Request, routineName: str, req: AddRoutineRequest
     )
 
     # this patches the routine to check if transforms are valid
-    routine.patch({k.name:k.name for k in req.params})
+    routine.patch({k:k for k in req.params.keys()})
 
     addRoutine(routine, overwrite=overwrite)
 
@@ -394,7 +394,7 @@ async def get(request: Request, req: GetRequestModel) -> Response:
     if err: raise HTTPException(status_code=400, detail=f"Invalid cache duration '{req.cache}', valid examples '30s', '10m', '1h', '7d', '10y'")
 
     routine = Routine(
-        name="", description="", params=[], 
+        name="", description="", params={}, 
         url=req.url, render=req.render, actions=actions, pagination=pagination
     )
     browserInfo = None

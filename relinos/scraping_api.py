@@ -206,20 +206,18 @@ kindMap: dict[str, Callable[[Any], bool]]  = {
 validRoutineParamName = r"[a-zA-Z_][a-zA-Z_0-9]*"
 
 class RoutineParam:
-    name: str
     description: str
     default: str
     kind: str
 
-    def __init__(self, name: str, description: str, default: str = "", kind: str = kindStr):
+    def __init__(self, description: str, default: str = "", kind: str = kindStr):
         '''
-        RoutineParam's patches the Routine on .patch() and replaces ||paramName:someTransformation||
+        RoutineParam's give extra info to parameters like description, default or kind. 
+        Look at .patch() for more details 
+
         kind checks if the actual param is int like, float like, ...
         '''
-        if not re.fullmatch(validRoutineParamName, name):
-            raise APIException(f"Invalid RoutineParam.name {name}")
 
-        self.name = name
         self.description = description
         self.default = default
         self.kind = kind
@@ -232,7 +230,7 @@ supportedFormats = {formatHTML, formatMD, formatJSON}
 class Routine:
     name: str
     description: str
-    params: list[RoutineParam]
+    params: dict[str, RoutineParam]
     url: str
     render: bool
     actions: list[Action]
@@ -241,9 +239,9 @@ class Routine:
     version: str
 
     def __init__(
-            self, name: str, description: str, params: list[RoutineParam], 
+            self, name: str, description: str, params: dict[str, RoutineParam], 
             url: str, render: bool, actions: list[Action], pagination: Pagination | None, 
-            extraction: str|dict[str, JsonType] = "", version: str = "0.3"
+            extraction: str|dict[str, JsonType] = "", version: str = "0.4"
         ):
         """
         Routines are reusable functions that interact with the web
@@ -259,12 +257,14 @@ class Routine:
         self.id = sha1("r_" + self.name)
 
         # checks for duplicate params
-        paramNames = [p.name for p in params]
-        if len(paramNames) != len(set(paramNames)):
+        if len(params.keys()) != len(set(params.keys())):
             raise ValueError("Duplicate names in param names")
 
+        for paramName in params.keys():
+            if not re.fullmatch(validRoutineParamName, paramName):
+                raise APIException(f"Invalid RoutineParam name {paramName}")
+
         self.params = params
-        self.paramsMap = {p.name: p for p in params}
 
         self.url = url
         self.actions = actions
@@ -275,14 +275,14 @@ class Routine:
 
     def helpMessage(self) -> str:
         s = f"{self.name}\n"
-        for p in self.paramsMap.values():
-            s += f"    {p.name}"
+        for pname, p in self.params.items():
+            s += f"    {pname}"
             if p.description: s += f": {p.description}"
             s += "\n"
         return s
 
     def shortHelpMessage(self) -> str:
-        return f'{self.name}({",".join([p.name + ("?" if p.default else "") for p in self.paramsMap.values()])})'
+        return f'{self.name}({",".join([k + ("?" if p.default else "") for k, p in self.params.items()])})'
 
     def patch(self, params: dict[str, str]) -> Routine:
         reParamSubstitute = r"\|\|" + validRoutineParamName + "(:" + validRoutineParamName + r")?\|\|"
@@ -360,7 +360,7 @@ class Routine:
             - md format  : all pages will be joined with a long line of --------- in between
             - json format: it will be "fused", see fuseData
         """
-        if self.version != "0.3": 
+        if self.version != "0.4": 
             raise APIException(f"You are running the unsupported routine {self.name} with version ({self.version}, look at migrate in README.md")
 
         if params is None: params = {}
@@ -377,19 +377,19 @@ class Routine:
         ###### PARAMETER PARSING #######
 
         for key in params.keys():
-            if key not in self.paramsMap:
+            if key not in self.params:
                 raise APIException(f"Unknown parameter '{key}' for routine '{self.shortHelpMessage()}'")
 
-        for k in self.paramsMap.keys():
+        for k in self.params.keys():
             if k in params:
-                kind = self.paramsMap[k].kind
+                kind = self.params[k].kind
                 if not kindMap[kind](params[k]):
                     raise APIException(f"Invalid parameter '{k}' must be of kind '{kind}'")
             else:
-                if self.paramsMap[k].default == "":
+                if self.params[k].default == "":
                     raise APIException(f"Missing parameter '{k}' for routine '{self.shortHelpMessage()}'")
                 else:
-                    params[k] = self.paramsMap[k].default
+                    params[k] = self.params[k].default
 
         # forking and monkey patching routine
         routineCopy = self.patch(params) 
