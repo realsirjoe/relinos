@@ -1433,6 +1433,22 @@ def getCache(signatureStr: str, maxAgeSeconds: int = 0) -> tuple[bool, str, str,
     else:
         return False, "", "", ""
 
+def clearCache(maxAgeSeconds: int):
+    ''' cleans up cache thats older than maxAgeSeconds '''
+    with sqlite3.connect(cacheDBPath) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+
+        minCreatedAt = int(time.time()) - maxAgeSeconds
+        rows = conn.execute('SELECT key FROM cache WHERE createdAt<?', (minCreatedAt,)).fetchall()
+        for row in rows:
+            key = row[0]
+            idStart = key[:2]
+            idTail = key[2:]
+            filePath = Path(os.path.join(cacheDirPath, f"{idStart}/{idTail}.html"))
+            if filePath.exists(): os.remove(str(filePath))
+
+        conn.execute('DELETE FROM cache WHERE createdAt<?', (minCreatedAt,))
+
 async def screenshotLoop(browser: BrowserManager, dirPath: str, debugMsg: str, startTime: int) -> None:
     try:
         while True:
