@@ -67,6 +67,8 @@ class GetRequestModel(BaseModel):
     includeMeta: bool = False
     proxy: str = ""
 
+    sessionID: str = ""
+
 class RoutineParamModel(BaseModel):
     description: str = ""
     default: str = ""
@@ -92,6 +94,8 @@ class RoutineRequestModel(BaseModel):
     cache: str = "0s"
     includeMeta: bool = False
     proxy: str = ""
+
+    sessionID: str = ""
 
 # When adding an extraction we actually run it to ensure its working. 
 # This can be done by specifying a valid /get or a valid /do request body
@@ -163,6 +167,15 @@ async def globalExceptionHandler(request: Request, exc: Exception) -> Response:
         httpExc = HTTPException(status_code=500, detail="Internal Error")
 
     return await customExceptionHandler(request, httpExc)
+
+@app.post("/session")
+async def generateSessionID() -> JSONResponse:
+    return { "sessionID": str(uuid.uuid4().hex) }
+
+sessionIDRe = re.compile(r"^[0-9a-f]{32}$")
+def validateSessionID(sessionID: str):
+    if not sessionIDRe.fullmatch(sessionID):
+        raise APIException("Invalid sessionID. Use POST /session to create a sessionID.")
 
 # Practically guessing any uuid4 (or any random 128 bit string) is impossible 
 # even with 1 billion tries per second it would take vastly longer than the age of the universe.
@@ -244,7 +257,14 @@ async def delete_routine(request: Request, routineName: str) -> None:
 
 @app.get("/do", response_class=HTMLResponse)
 async def routine(request: Request, req: RoutineRequestModel) -> Response:
-    request.state.sessionID = uuid.uuid4().hex
+    if req.sessionID:
+        validateSessionID(req.sessionID)
+        request.state.sessionID = req.sessionID 
+        useStorage = True
+    else:
+        request.state.sessionID = uuid.uuid4().hex
+        useStorage = False
+
     request.state.userDebug = req.debug
 
     routine, success = getRoutine(req.name)
@@ -270,7 +290,8 @@ async def routine(request: Request, req: RoutineRequestModel) -> Response:
             debug=req.debug, 
             proxy=req.proxy,
             browser=browserInfo,
-            sessionID=request.state.sessionID
+            sessionID=request.state.sessionID,
+            useStorage=useStorage
         )
     except:
         raise 
@@ -334,14 +355,14 @@ async def add_extraction(request: Request, extractionName: str, req: AddExtracti
         # interpret as /get
         reqData = GetRequestModel(
             url=req.url, render=req.render, actions=req.actions, pagination=req.pagination, 
-            format="json", extraction=req.extraction, debug=False, cache=req.cache, includeMeta=True, proxy=req.proxy
+            format="json", extraction=req.extraction, debug=False, cache=req.cache, includeMeta=True, proxy=req.proxy, sessionID=req.sessionID
         )
         response = await get(request, reqData)
     else:
         # interpret as /do
         reqData2 = RoutineRequestModel(
             name=req.name, params=req.params, format="json", extraction=req.extraction, 
-            debug=False, cache=req.cache, includeMeta=True, proxy=req.proxy
+            debug=False, cache=req.cache, includeMeta=True, proxy=req.proxy, sessionID=req.sessionID
         )
         response = await routine(request, reqData2)
     d = json.loads(bytes(response.body))
@@ -384,7 +405,13 @@ async def importFile(request: Request, overwrite: bool = Query(False)):
 
 @app.get("/get", response_class=HTMLResponse)
 async def get(request: Request, req: GetRequestModel) -> Response:
-    request.state.sessionID = uuid.uuid4().hex
+    if req.sessionID:
+        validateSessionID(req.sessionID)
+        request.state.sessionID = req.sessionID 
+        useStorage = True
+    else:
+        request.state.sessionID = uuid.uuid4().hex
+        useStorage = False
     request.state.userDebug = req.debug
 
     actions = parseActions(req.actions)
@@ -410,7 +437,8 @@ async def get(request: Request, req: GetRequestModel) -> Response:
             debug=req.debug, 
             proxy=req.proxy,
             browser=browserInfo,
-            sessionID=request.state.sessionID
+            sessionID=request.state.sessionID,
+            useStorage=useStorage
         )
     except:
         raise 

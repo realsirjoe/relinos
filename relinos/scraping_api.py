@@ -345,7 +345,7 @@ class Routine:
             self, 
             params: dict[str, str]|None = None, fmt: str = formatHTML, 
             extraction: str|dict[str, JsonType] = "", 
-            maxCacheAge: int = 0, debug: bool = False, proxy: str = "", browser: Optional["BrowserInfo"] = None, sessionID: str|None = None
+            maxCacheAge: int = 0, debug: bool = False, proxy: str = "", browser: Optional["BrowserInfo"] = None, sessionID: str|None = None, useStorage: bool = False
         ) -> tuple[str, str, str, bool, str]:
 
         """
@@ -399,7 +399,7 @@ class Routine:
         htmlStrs, finalUrls, _ = await getMulti(
             url=routineCopy.url, render=routineCopy.render, 
             actions=routineCopy.actions, debug=debug, maxCacheAge=maxCacheAge, 
-            pagination=routineCopy.pagination, proxy=proxy, browser=browser, sessionID=sessionID
+            pagination=routineCopy.pagination, proxy=proxy, browser=browser, sessionID=sessionID, useStorage=useStorage
         )
         if len(htmlStrs) == 0:
             raise APIException("No pages returned")
@@ -918,6 +918,14 @@ async def deepFindElements(tab: Tab, xpath: str) -> list[WebElement]:
                 return matches
     return []
 
+async def loadStorage(browser: "BrowserManager", sessionID: str, maxAgeSeconds: int = 3000):
+    success, storage, _, _ = getCache(sessionID, maxAgeSeconds)
+    if success: await browser.loadStorage(storage)
+
+async def saveStorage(browser: "BrowserManager", sessionID: str):
+    storage = await browser.getStorage()
+    setCache(sessionID, storage, "", ".session")
+
 async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime: int, tempDir: str, debugDir: str, debug: bool = True) -> None:
     tmp = None
     debugMsg = ""
@@ -1263,6 +1271,19 @@ class BrowserManager:
 
         self.proxy = proxyStr
 
+    async def getStorage(self) -> str:
+        storage = {}
+
+        cookies = await self.browser.get_cookies()
+        storage["cookies"] = cookies
+
+        return json.dumps(storage)
+
+    async def loadStorage(self, storageData: str) -> None:
+        storage = json.loads(storageData)
+
+        await self.browser.set_cookies(storage["cookies"])
+
 async def blockMedia(tab: Tab) -> None:
     ''' for faster loading '''
     async def blockMediaRequests(tab: Tab, event: dict[str, Any]) -> None:
@@ -1412,7 +1433,6 @@ def getCache(signatureStr: str, maxAgeSeconds: int = 0) -> tuple[bool, str, str,
     else:
         return False, "", "", ""
 
-
 async def screenshotLoop(browser: BrowserManager, dirPath: str, debugMsg: str, startTime: int) -> None:
     try:
         while True:
@@ -1491,7 +1511,7 @@ def resolveRelativeUrls(htmlStr: str, baseUrl: str) -> str:
     assert isinstance(response, str)
     return response
 
-async def getMulti(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, pagination: Pagination | None = None, proxy: str = "", browser: BrowserInfo|None = None, sessionID: str = "defaultSession") -> tuple[list[str], list[str], list[str]]:
+async def getMulti(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, pagination: Pagination | None = None, proxy: str = "", browser: BrowserInfo|None = None, sessionID: str = "defaultSession", useStorage: bool = False) -> tuple[list[str], list[str], list[str]]:
     """ 
     Behaves similar to Get but supports pagination
     Returns array for each return value of Get
@@ -1500,6 +1520,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
     htmlStrs, finalUrls, signatureStrs = [], [], []
 
     multiSignatureStrRoot = url + "::::" + generateSignature(actions) + "::::" + generateSignature(render) 
+    if useStorage: multiSignatureStrRoot += "::::" + generateSignature(sessionID)
 
     if pagination:
         # Since we assume pagination requires browser state of the previous pages, 
@@ -1510,7 +1531,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
 
     htmlStr, finalUrl, signatureStr = await get(
         url=url, render=render, actions=actions, debug=debug, 
-        maxCacheAge=maxCacheAge, proxy=proxy, browser=browser, sessionID=sessionID
+        maxCacheAge=maxCacheAge, proxy=proxy, browser=browser, sessionID=sessionID, useStorage=useStorage
     )
 
     htmlStrs.append(htmlStr)
@@ -1546,7 +1567,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
             # this may not be an issue
             htmlStr, finalUrl, signatureStr = await get(
                 url=url, render=render, actions=actions, debug=debug, 
-                maxCacheAge=maxCacheAge, proxy=proxy, browser=browser, sessionID=sessionID, prevSignatureStr=signatureStr
+                maxCacheAge=maxCacheAge, proxy=proxy, browser=browser, sessionID=sessionID, useStorage=useStorage, prevSignatureStr=signatureStr
             )
 
             htmlStrs.append(htmlStr);
@@ -1563,7 +1584,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
 def getUserDebugDir(sessionID: str) -> str:
     return os.path.join(debugDirPath, f"{sessionID}")
 
-async def get(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, proxy: str = "", browser: BrowserInfo|None = None, sessionID: str = "defaultSession", prevSignatureStr: str = "") -> tuple[str, str, str]:
+async def get(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, proxy: str = "", browser: BrowserInfo|None = None, sessionID: str = "defaultSession", useStorage: bool = False, prevSignatureStr: str = "") -> tuple[str, str, str]:
     signatureStr: str = ""
     htmlSrc: str = ""
     userDebugDir: str = getUserDebugDir(sessionID)
@@ -1576,6 +1597,7 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
 
     # if prevSignatureStr, url, actions or render change item will be recached
     signatureStr = prevSignatureStr + "::::" + url + "::::" + generateSignature(actions) + "::::" + generateSignature(render)
+    if useStorage: signatureStr += "::::" + generateSignature(sessionID)
 
     if debug:
         folder_path = Path(userDebugDir)
@@ -1591,7 +1613,7 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
             resp = await s.get(
                 f"localhost:{browserWorkerPort}/browser",
                 json={
-                    "browserNr": browser.browserNr, "proxy": proxy, "sessionID": sessionID, "clearContext": prevSignatureStr == "", 
+                    "browserNr": browser.browserNr, "proxy": proxy, "sessionID": sessionID, "useStorage": useStorage, "clearContext": prevSignatureStr == "", 
                     "debug": debug, "url": url, "actions": [[a.typ, a.v0, a.v1] for a in actions]
                 },
                 timeout=60

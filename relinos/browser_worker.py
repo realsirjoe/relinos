@@ -23,7 +23,7 @@ from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, Request, Response
 
 from relinos.config import browserWorkerPort, browserPoolSize
-from relinos.scraping_api import BrowserManager, APIException, ScrapingException, getUserDebugDir, registerBrowser, Action, ActionLoop, browserOSX, browserLinuxXVFB
+from relinos.scraping_api import BrowserManager, APIException, ScrapingException, getUserDebugDir, registerBrowser, Action, ActionLoop, browserOSX, browserLinuxXVFB, loadStorage, saveStorage
 from relinos.tools import getPublicIP, getPrivateIP
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ class BrowserRequestModel(BaseModel):
     debug: bool = False
     clearContext: bool = True
     sessionID: str
+    useStorage: bool = False
     url: str
     actions: list[ActionModel] | list[tuple[str, str, str]] = []
 
@@ -224,8 +225,10 @@ async def request(req: BrowserRequestModel) -> Response:
             tempDir = mkdtemp()
             startTime = int(time.time())
             await browser.setProxy(req.proxy)
+            if req.useStorage: await loadStorage(browser, req.sessionID)
             if req.url: actions = [Action("actionGoTo", req.url, "")] + actions
             if actions: await ActionLoop(browser, actions=actions, startTime=startTime, tempDir=tempDir, debugDir=userDebugDir, debug=req.debug)
+            if req.useStorage: await saveStorage(browser, req.sessionID)
 
             # save page source for inspection
             htmlSrc = await browser.page.page_source_real
