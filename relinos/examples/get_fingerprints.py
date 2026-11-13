@@ -62,9 +62,9 @@ def getFontFingerprints() -> tuple[str, str]:
 
     htmlSrc = requests.get(serverName + "/get", json=reqData).text
     tree = html.fromstring(htmlSrc)
-    results: list[str] = tree.xpath("//*[@id='fonts-metrics-hash']/text()") # type: ignore
+    results: list[str] = tree.xpath("//*[@id='fonts-metrics-hash']/text()")
     fontFingerprint = results[0].strip()
-    results = tree.xpath("//*[@id='fonts-glyphs-hash']/text()") # type: ignore
+    results = tree.xpath("//*[@id='fonts-glyphs-hash']/text()")
     fontGlyphFingerprint = results[0].strip()
 
     return fontFingerprint, fontGlyphFingerprint

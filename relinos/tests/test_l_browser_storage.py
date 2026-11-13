@@ -1,3 +1,4 @@
+from typing import Any
 import unittest
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -94,7 +95,7 @@ class Handler(BaseHTTPRequestHandler):
         "/localstorage": localStorageTestSite,
         "/indexeddb": indexedDBTestSite,
     }
-    def do_GET(self):
+    def do_GET(self) -> None:
         html = self.pages.get(urlparse(self.path).path)
         if html is None: self.send_error(404); return
         body = html.encode()
@@ -104,13 +105,16 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, *_): 
+    def log_message(self, *_: Any) -> None: 
         pass  # suppress test-server logs
 
 class TestBrowserStorage(unittest.TestCase):
     """ tests if passing sessionID uses the previous requests cookies, localStorage and indexedDB """
+    server: ThreadingHTTPServer
+    thread: Thread
+
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         global testServerUrl
         cls.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         cls.thread = Thread(target=cls.server.serve_forever, daemon=True)
@@ -118,7 +122,7 @@ class TestBrowserStorage(unittest.TestCase):
         testServerUrl = f"http://127.0.0.1:{cls.server.server_port}"
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         cls.server.shutdown()
         cls.server.server_close()
         cls.thread.join()

@@ -170,10 +170,10 @@ async def globalExceptionHandler(request: Request, exc: Exception) -> Response:
 
 @app.post("/session")
 async def generateSessionID() -> JSONResponse:
-    return { "sessionID": str(uuid.uuid4().hex) }
+    return JSONResponse({ "sessionID": str(uuid.uuid4().hex) })
 
 sessionIDRe = re.compile(r"^[0-9a-f]{32}$")
-def validateSessionID(sessionID: str):
+def validateSessionID(sessionID: str) -> None:
     if not sessionIDRe.fullmatch(sessionID):
         raise APIException("Invalid sessionID. Use POST /session to create a sessionID.")
 
@@ -383,7 +383,7 @@ async def delete_extraction(request: Request, extractionName: str) -> None:
     deleteExtraction(extractionName)
 
 @app.post("/import")
-async def importFile(request: Request, overwrite: bool = Query(False)):
+async def importFile(request: Request, overwrite: bool = Query(False)) -> None:
     body = await request.body()
     data = json.loads(body)
     typ = data["type"]

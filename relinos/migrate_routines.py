@@ -61,7 +61,7 @@ def setNestedAttr(obj: Any, path: str, value: Any, startIndex: int=-1, endIndex:
     except:
         return False
 
-def updateRoutineV1(routine: dict) -> dict:
+def updateRoutineV1(routine: dict[str, Any]) -> dict[str, Any]:
     supportedTopLevelKeys = ["url", "actions", "pagination"]
 
     if routine.get("pagination"):
@@ -105,7 +105,7 @@ def updateRoutineV1(routine: dict) -> dict:
 
     return routine
 
-def updateRoutineV2(routine: dict) -> dict:
+def updateRoutineV2(routine: dict[str, Any]) -> dict[str, Any]:
     paramsMap = { p["name"]: p for p in routine["params"] }
     if len(paramsMap) != len(routine["params"]):
         raise Exception("Duplicate parameter names, fix first")
@@ -118,7 +118,7 @@ def updateRoutineV2(routine: dict) -> dict:
 
     return routine
     
-def main():
+def main() -> None:
     for r in searchRoutines("", limit=-1):
         print(f"Converting {r['name']}")
         id = sha1("r_" + r["name"])

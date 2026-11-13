@@ -26,30 +26,30 @@ class TestWebRTC(unittest.TestCase):
         results: list[htmlElement] = tree.xpath("//*[@id='rtc-peerconnection']") # type: ignore
         rtcPeerConnection = "true" in results[0].text_content().lower()
 
-        results = tree.xpath("//*[@id='rtc-datachannel']") # type: ignore
+        results = tree.xpath("//*[@id='rtc-datachannel']")
         rtcDataChannel = "true" in results[0].text_content().lower()
         if not rtcPeerConnection or not rtcDataChannel:
             raise AssertionError("WebRTC is disabled which looks deviates heavily from standard browsers")
 
         # proxy needs to be used for this test 
-        results = tree.xpath("//*[@id='client-ipv4']//a") # type: ignore
+        results = tree.xpath("//*[@id='client-ipv4']//a")
         remoteIPAddress = results[0].text.strip()
         externalIPAddress = getPublicIP()
         if remoteIPAddress == externalIPAddress:
             raise AssertionError("You are not using a proxy, cannot perform webrtc test")
         
         # checks if local ip exposed
-        results = tree.xpath("//*[@id='rtc-local']") # type: ignore
+        results = tree.xpath("//*[@id='rtc-local']")
         rtcIPLocalAddress = results[0].text.strip() 
         if rtcIPLocalAddress != "-":
             raise AssertionError(f"WebRTC exposes local ip address {rtcIPLocalAddress}")
 
-        results = tree.xpath("//*[@id='rtc-public']") # type: ignore
+        results = tree.xpath("//*[@id='rtc-public']")
         # checks if public ip exposed
         if results[0].text_content().strip() == "-":
             raise AssertionError("WebRTC doesn't expose any public ip address which deviates from standard browsers")
 
-        results  = tree.xpath("//*[@id='rtc-public']//a") # type: ignore
+        results  = tree.xpath("//*[@id='rtc-public']//a")
         rtcIPAddress = results[0].text.strip()
         if not remoteIPAddress or not rtcIPAddress:
             raise AssertionError("Could not select remoteIPAddress or rtcIPAddress from browserleaks page")

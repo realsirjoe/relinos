@@ -121,7 +121,7 @@ def installChrome() -> None:
         if os.path.exists(chromePath): shutil.rmtree(chromePath)
         shutil.move(unzipPath / f"chrome-{osFullName}", chromePath)
 
-def installXvfb():
+def installXvfb() -> None:
     if platform.system().lower() != "linux": return
     print("Installing Xvfb")
     if shutil.which("Xvfb"): return

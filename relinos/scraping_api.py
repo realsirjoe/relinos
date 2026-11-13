@@ -294,7 +294,7 @@ class Routine:
             raise APIException("Internal Error, Malformed routine")
 
         unusedParams = set(params.keys())
-        def walk(value, isRoot=True, keypath=""):
+        def walk(value: Any, isRoot: bool = True, keypath: str = "") -> Any:
             """ walks routine and looks for possible patches/replacements """
             if isinstance(value, dict):
                 for key, val in value.items():
@@ -329,6 +329,8 @@ class Routine:
                     if re.search(reParamSubstitute, v):
                         raise APIException(f"param {paramName} has unsupported value '{v}', ||someName|| is unsupported inside values")
                     value = value.replace(expression, v)
+            else:
+                raise ValueError(f"Cannot walk routine further, invalid type {type(value)}")
 
             return value
 
@@ -806,7 +808,7 @@ def getRoutine(name: str, version: int = -1) -> tuple[Routine | None, bool]:
 
     return deserialize(Routine, json.loads(rawRoutine)), True
 
-def searchRoutines(term: str, limit=100) -> list[dict[str, Any]]:
+def searchRoutines(term: str, limit: int = 100) -> list[dict[str, Any]]:
     with sqlite3.connect(dbPath) as conn:
         conn.row_factory = sqlite3.Row
         if term:
@@ -920,11 +922,11 @@ async def deepFindElements(tab: Tab, xpath: str) -> list[WebElement]:
                 return matches
     return []
 
-async def loadStorage(browser: "BrowserManager", sessionID: str, maxAgeSeconds: int = 3000):
+async def loadStorage(browser: "BrowserManager", sessionID: str, maxAgeSeconds: int = 3000) -> None:
     success, storage, _, _ = getCache(sessionID, maxAgeSeconds)
     if success: await browser.loadStorage(storage)
 
-async def saveStorage(browser: "BrowserManager", sessionID: str):
+async def saveStorage(browser: "BrowserManager", sessionID: str) -> None:
     storage = await browser.getStorage()
     setCache(sessionID, storage, "", ".session")
 
@@ -1048,7 +1050,7 @@ async def awakeExtension(tab: Tab, extensionName: str, timeout: int = 10) -> str
     """ starts the service worker of an extension """ 
     extensionID = chromeExtensionToID[extensionName]
 
-    response = await tab._execute_command({
+    response: dict[str, Any] = await tab._execute_command({
         "method": "ServiceWorker.startWorker",
         "params": { "scopeURL": f"chrome-extension://{extensionID}/" }
     })
@@ -1114,7 +1116,7 @@ class BrowserManager:
         self.humanize = humanize
         self.proxy = ""
 
-        self._origins = set()
+        self._origins: set[str] = set()
 
     async def clearContext(self) -> None: 
         params = {"origin": "*", "storageTypes": "all"}
@@ -1211,7 +1213,7 @@ class BrowserManager:
             await self.page._execute_command({"method": "ServiceWorker.enable"})
 
             # this event keeps track of all visited origins
-            def trackNavigation(event: dict) -> None:
+            def trackNavigation(event: dict[str, Any]) -> None:
                 url = event["params"]["frame"].get("url", "")
 
                 # url to origin
@@ -1274,7 +1276,7 @@ class BrowserManager:
                 if not parsed.hostname or not parsed.port:
                     raise APIException(f"Invalid proxy {proxyStr}")
 
-                result = await extensionConn.execute_command({
+                result: dict[str, Any] = await extensionConn.execute_command({
                     "method": "Runtime.evaluate",
                     "params": {
                         "expression": f"setProxy('{parsed.scheme}', '{parsed.hostname}', {parsed.port})",
@@ -1293,12 +1295,12 @@ class BrowserManager:
                     }
                 })
         finally:
-            await extensionConn.close()
+            await extensionConn.close() # type: ignore[no-untyped-call]
 
         self.proxy = proxyStr
 
     async def getStorage(self) -> str:
-        storage = {}
+        storage: dict[str, Any] = {}
 
         cookies = await self.browser.get_cookies()
         storage["cookies"] = cookies
@@ -1321,7 +1323,7 @@ class BrowserManager:
 
         self._origins = set(storage["origins"].keys())
 
-async def getLocalStorage(browser: Browser, origin: str) -> dict[str, str]:
+async def getLocalStorage(browser: Chrome, origin: str) -> dict[str, str]:
     # This tab is deliberately created in the SAME context.
     temp = await browser.new_tab()
 
@@ -1342,10 +1344,10 @@ async def getLocalStorage(browser: Browser, origin: str) -> dict[str, str]:
         return localStorage
     finally:
         await temp.remove_callback(routeID)
-        await temp.disable_fetch_events()
-        await temp.close()
+        await temp.disable_fetch_events() # type: ignore[no-untyped-call]
+        await temp.close()  # type: ignore[no-untyped-call]
 
-async def loadLocalStorage(browser: Browser, origin: str, items: dict[str, str]):
+async def loadLocalStorage(browser: Chrome, origin: str, items: dict[str, str]) -> None:
     temp = await browser.new_tab()
 
     await temp.enable_fetch_events(resource_type=ResourceType.DOCUMENT)
@@ -1365,8 +1367,8 @@ async def loadLocalStorage(browser: Browser, origin: str, items: dict[str, str])
             """)
     finally:
         await temp.remove_callback(routeID)
-        await temp.disable_fetch_events()
-        await temp.close()
+        await temp.disable_fetch_events() # type: ignore[no-untyped-call]
+        await temp.close() # type: ignore[no-untyped-call]
 
 EMPTY_HTML = base64.b64encode(b"<html></html>").decode()
 
@@ -1529,7 +1531,7 @@ def getCache(signatureStr: str, maxAgeSeconds: int = 0) -> tuple[bool, str, str,
     else:
         return False, "", "", ""
 
-def clearCache(maxAgeSeconds: int):
+def clearCache(maxAgeSeconds: int) -> None:
     ''' cleans up cache thats older than maxAgeSeconds '''
     with sqlite3.connect(cacheDBPath) as conn:
         conn.execute("BEGIN IMMEDIATE")
