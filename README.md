@@ -140,7 +140,7 @@ Relinos lets you combine browser interactions, pagination, caching, and structur
 |------------|--------------------------------------------------------------------------|-------------------------------------|
 |url         | Downloads the url                                                        | `"https://example.com"`               |
 |render      | Renders the site through a real browser                                  | `true` or `false`                   |
-|sessionID   | To preserve cookies across requests, create a sessionID with POST /session and include it in every request | `1375eb7adbbf4831eeabf1508cb93275`    |
+|sessionID   | To preserve cookies and localStorage across requests, create a sessionID with POST /session and include it in every request | `1375eb7adbbf4831eeabf1508cb93275`    |
 |cache       | Picks a cached result if it was less than the specified duration ago     | `"600s"` or `"60m"` or `"2h"` or `"7d"` or `"1y"` |
 |debug       | Sends back x-debug-url header, visit the url to inspect and debug the interaction   | `true` or `false`    |
 |includeMeta | Wraps meta information around the response                               | `true` or `false`                       |

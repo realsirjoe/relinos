@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any, Callable, Optional, cast
+import base64
 import asyncio
 import os
 from pathlib import Path
@@ -29,6 +30,7 @@ from pydoll.protocol.base import Command
 from pydoll.protocol.input.types import KeyEventType
 from pydoll.elements.web_element import WebElement
 from pydoll.connection.connection_handler import ConnectionHandler
+from pydoll.protocol.page.events import PageEvent
 
 from curl_cffi import requests
 from curl_cffi.requests import AsyncSession
@@ -1112,11 +1114,14 @@ class BrowserManager:
         self.humanize = humanize
         self.proxy = ""
 
+        self._origins = set()
+
     async def clearContext(self) -> None: 
         params = {"origin": "*", "storageTypes": "all"}
         await self.page._execute_command(
             Command(method="Storage.clearDataForOrigin", params=params)
         )
+        self._origins = set()
         # this immediately detects when browser freezes, e.g. after computer sleeps
         # so it can be closed and reopened
         await self.page.go_to("about:blank", timeout=1) 
@@ -1195,6 +1200,7 @@ class BrowserManager:
             self.browser = getChrome(displayNumberStr, self.userDataDir)
             self.page = await self.browser.start()
 
+            await self.page.enable_page_events()
             await fixWebRTCLeak(self.page)
             await blockMedia(self.page)
 
@@ -1204,8 +1210,28 @@ class BrowserManager:
             # this is required for proxy_extension since we need to wake the extension's service worker regularly  
             await self.page._execute_command({"method": "ServiceWorker.enable"})
 
+            # this event keeps track of all visited origins
+            def trackNavigation(event: dict) -> None:
+                url = event["params"]["frame"].get("url", "")
+
+                # url to origin
+                parts = urllib.parse.urlsplit(url)
+                if parts.scheme in {"http", "https"} and parts.hostname:
+                    port = f":{parts.port}" if parts.port else ""
+                    origin = f"{parts.scheme}://{parts.hostname}{port}"
+                    self._origins.add(origin)
+
+            self.frameNavigatedCallbackID = await self.page.on(
+                PageEvent.FRAME_NAVIGATED,
+                trackNavigation,
+            )
+
     async def close(self) -> None: 
         if not self.isClone and self.isOpen:
+            try:
+                await self.page.remove_callback(self.frameNavigatedCallbackID)
+            except:
+                pass
             try:
                 await self.browser.stop()
             except: 
@@ -1277,12 +1303,82 @@ class BrowserManager:
         cookies = await self.browser.get_cookies()
         storage["cookies"] = cookies
 
+        storage["origins"] = {}
+        for origin in self._origins:
+            localStorage = await getLocalStorage(self.browser, origin)
+            storage["origins"][origin] = {
+                "localStorage": localStorage            
+            }
         return json.dumps(storage)
 
     async def loadStorage(self, storageData: str) -> None:
         storage = json.loads(storageData)
-
         await self.browser.set_cookies(storage["cookies"])
+
+        if storage.get("origins"):
+            for origin in storage["origins"].keys():
+                await loadLocalStorage(self.browser, origin, storage["origins"][origin]["localStorage"])
+
+        self._origins = set(storage["origins"].keys())
+
+async def getLocalStorage(browser: Browser, origin: str) -> dict[str, str]:
+    # This tab is deliberately created in the SAME context.
+    temp = await browser.new_tab()
+
+    await temp.enable_fetch_events(resource_type=ResourceType.DOCUMENT)
+    routeID = await temp.on(
+        FetchEvent.REQUEST_PAUSED,
+        partial(blankDocument, temp),
+    )
+
+    try:
+        await temp.go_to(origin)  # origin is real; response body is synthetic
+        # local storage
+        result = await temp.execute_script(
+            "return Object.entries(localStorage)",
+            return_by_value=True,
+        )
+        localStorage = dict(result["result"]["result"]["value"])
+        return localStorage
+    finally:
+        await temp.remove_callback(routeID)
+        await temp.disable_fetch_events()
+        await temp.close()
+
+async def loadLocalStorage(browser: Browser, origin: str, items: dict[str, str]):
+    temp = await browser.new_tab()
+
+    await temp.enable_fetch_events(resource_type=ResourceType.DOCUMENT)
+    routeID = await temp.on(
+        FetchEvent.REQUEST_PAUSED,
+        partial(blankDocument, temp),
+    )
+
+    try:
+        await temp.go_to(origin)  # origin is real; response body is synthetic
+
+        pairs = json.dumps(list(items.items()))
+        await temp.execute_script(f"""
+            localStorage.clear();
+            for (const [name, value] of {pairs})
+                localStorage.setItem(name, value);
+            """)
+    finally:
+        await temp.remove_callback(routeID)
+        await temp.disable_fetch_events()
+        await temp.close()
+
+EMPTY_HTML = base64.b64encode(b"<html></html>").decode()
+
+async def blankDocument(tab: Tab, event: dict[str, Any]) -> None:
+    await tab.fulfill_request(
+        event["params"]["requestId"],
+        response_code=200,
+        response_headers=[
+            {"name": "Content-Type", "value": "text/html; charset=utf-8"},
+        ],
+        body=EMPTY_HTML,
+    )
 
 async def blockMedia(tab: Tab) -> None:
     ''' for faster loading '''
@@ -1343,7 +1439,6 @@ async def fixWebRTCLeak(tab: Tab) -> None:
     params = {"source": script}
 
     # NOTE disable_page_events clears all added scripts via Page.* and they must be added again
-    await tab.enable_page_events()
     await tab._execute_command(
         Command(method="Page.addScriptToEvaluateOnNewDocument", params=params)
     )
@@ -1414,7 +1509,8 @@ def getCache(signatureStr: str, maxAgeSeconds: int = 0) -> tuple[bool, str, str,
     with sqlite3.connect(cacheDBPath) as conn:
         conn.row_factory = sqlite3.Row
 
-        minCreatedAt = int(time.time()) - maxAgeSeconds
+        # +1 avoids returning cached result on maxAgeSeconds=0 when 2nd request arrives within same second as 1st
+        minCreatedAt = int(time.time()) - maxAgeSeconds + 1 
         row = conn.execute('SELECT * FROM cache WHERE "key"=? AND createdAt>=?', (key,minCreatedAt)).fetchone()
 
         result = dict(row) if row else None
