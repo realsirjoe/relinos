@@ -329,6 +329,8 @@ class Routine:
                     if re.search(reParamSubstitute, v):
                         raise APIException(f"param {paramName} has unsupported value '{v}', ||someName|| is unsupported inside values")
                     value = value.replace(expression, v)
+            elif value == None:
+                return value
             else:
                 raise ValueError(f"Cannot walk routine further, invalid type {type(value)}")
 
