@@ -5,7 +5,7 @@ source ~/.relinos/env/bin/activate
 
 export $(cat ~/.relinos/config | xargs)
 
-uvicorn relinos.browser_worker:app --host 0.0.0.0 --port "${BROWSER_WORKER_PORT:-18765}" --loop asyncio &
+uvicorn relinos.browser_worker:app --host 127.0.0.1 --port "${BROWSER_WORKER_PORT:-18765}" --loop asyncio &
 PID1=$!
 uvicorn relinos.main:app --host 0.0.0.0 --port "${PORT:-8032}" --loop asyncio &
 PID2=$!
