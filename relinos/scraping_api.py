@@ -950,7 +950,7 @@ def saveStorageUnrendered(session: AsyncSession, sessionID: str) -> None:
             "path": c.path, 
             "expires": int(c.expires if c.expires is not None else -1),
             "size": len(c.name) + len(c.value),
-            "httpOnly": c._rest["http_only"] == "True",
+            "httpOnly": c._rest.get("http_only") == "True",
             "secure": c.secure, "session": c.discard,
             "sameSite": c.get_nonstandard_attr("SameSite") or "Lax", "priority": "Medium",
             "sourceScheme": "Secure" if c.secure else "NonSecure",
@@ -1352,8 +1352,7 @@ class BrowserManager:
                 if s.get("localStorage") != None and s.get("indexedDB") != None:
                     await loadOriginStorage(self.browser, origin, s["localStorage"], s["indexedDB"])
 
-        self._origins = set(storage["origins"].keys())
-
+            self._origins = set(storage["origins"].keys())
 
 STORAGE_JS = (Path(__file__).parent / "data" / "storage.js").read_text(encoding="utf-8")
 
