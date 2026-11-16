@@ -4,6 +4,8 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 from urllib.parse import urlparse
+import uuid
+from http.cookies import SimpleCookie
 
 from relinos.config import serverName
 
@@ -96,7 +98,24 @@ class Handler(BaseHTTPRequestHandler):
         "/indexeddb": indexedDBTestSite,
     }
     def do_GET(self) -> None:
-        html = self.pages.get(urlparse(self.path).path)
+        parsed = urlparse(self.path)
+
+        if parsed.path == "/httpOnlyCookies":
+            cookies = SimpleCookie()
+            cookies.load(self.headers.get("Cookie", ""))
+
+            value = cookies["value"].value if "value" in cookies else str(uuid.uuid4())
+            body = value.encode()
+
+            self.send_response(200)
+            self.send_header("Set-Cookie", f"value={value}; Path=/")
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        html = self.pages.get(parsed.path)
         if html is None: self.send_error(404); return
         body = html.encode()
         self.send_response(200)
@@ -126,6 +145,39 @@ class TestBrowserStorage(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
         cls.thread.join()
+
+    def testCookiesUnrendered(self) -> None:
+        resp = requests.post(serverName + "/session")
+        sessionID = json.loads(resp.text)["sessionID"]
+
+        # calling twice with the same sessionID should find the same set cookie and match
+        values = []
+        for i in range(2):
+            data = {
+                "url": testServerUrl + "/httpOnlyCookies",
+                "cache": "0d",
+                "render": False, "sessionID": sessionID,
+            }
+            resp = requests.get(serverName + "/get", json=data)
+            cookie = resp.text
+            self.assertNotEqual(cookie, "")
+            values.append(cookie)
+        self.assertEqual(values[0], values[1])
+
+        # calling twice without sessionID should find different cookies 
+        values = []
+        for i in range(2):
+            data = {
+                "url": testServerUrl + "/httpOnlyCookies",
+                "cache": "0d",
+                "render": False, 
+                "format": "html"
+            }
+            resp = requests.get(serverName + "/get", json=data)
+            cookie = resp.text
+            self.assertNotEqual(cookie, "")
+            values.append(cookie)
+        self.assertNotEqual(values[0], values[1])
 
     def testCookies(self) -> None:
         resp = requests.post(serverName + "/session")

@@ -932,6 +932,34 @@ async def saveStorage(browser: "BrowserManager", sessionID: str) -> None:
     storage = await browser.getStorage()
     setCache(sessionID, storage, "", ".session")
 
+def loadStorageUnrendered(session: AsyncSession, sessionID: str, maxAgeSeconds: int = 3000) -> None:
+    success, rawStorage, _, _ = getCache(sessionID, maxAgeSeconds)
+    if success:
+        storage = json.loads(rawStorage)
+        for c in storage["cookies"]:
+            session.cookies.set(
+                name=c["name"], value=c["value"], domain=c["domain"],
+                path=c["path"], secure=c["secure"],
+            )
+
+def saveStorageUnrendered(session: AsyncSession, sessionID: str) -> None:
+    storage = {"cookies": []}
+    for c in session.cookies.jar:
+        data = {
+            "name": c.name, "value": c.value, "domain": c.domain.strip("."),
+            "path": c.path, 
+            "expires": int(c.expires if c.expires is not None else -1),
+            "size": len(c.name) + len(c.value),
+            "httpOnly": c._rest["http_only"] == "True",
+            "secure": c.secure, "session": c.discard,
+            "sameSite": c.get_nonstandard_attr("SameSite") or "Lax", "priority": "Medium",
+            "sourceScheme": "Secure" if c.secure else "NonSecure",
+            "sourcePort": -1,
+        }
+        storage["cookies"].append(data)
+
+    setCache(sessionID, json.dumps(storage), "", ".session")
+
 async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime: int, tempDir: str, debugDir: str, debug: bool = True) -> None:
     tmp = None
     debugMsg = ""
@@ -1321,7 +1349,8 @@ class BrowserManager:
 
         if storage.get("origins"):
             for origin, s in storage["origins"].items():
-                await loadOriginStorage(self.browser, origin, s["localStorage"], s["indexedDB"])
+                if s.get("localStorage") != None and s.get("indexedDB") != None:
+                    await loadOriginStorage(self.browser, origin, s["localStorage"], s["indexedDB"])
 
         self._origins = set(storage["origins"].keys())
 
@@ -1758,10 +1787,12 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
                 
     elif not cachedFound:
         async with AsyncSession() as s:
+            if useStorage: loadStorageUnrendered(session=s, sessionID=sessionID)
             r = await s.get(url, impersonate="chrome", proxy=proxy)
             finalUrl = r.url
             htmlSrc = r.text
             contentType = r.headers.get("content-type", "")
+            if useStorage: saveStorageUnrendered(session=s, sessionID=sessionID)
 
     if debug:
         with open(os.path.join(userDebugDir, f"{int(time.time() * 1000)}_final_site.html"), "w") as f: f.write(htmlSrc)
