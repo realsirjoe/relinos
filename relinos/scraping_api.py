@@ -1309,9 +1309,9 @@ class BrowserManager:
 
         storage["origins"] = {}
         for origin in self._origins:
-            localStorage = await getLocalStorage(self.browser, origin)
+            localStorage, indexedDB = await getOriginStorage(self.browser, origin)
             storage["origins"][origin] = {
-                "localStorage": localStorage            
+                "localStorage": localStorage, "indexedDB": indexedDB
             }
         return json.dumps(storage)
 
@@ -1320,12 +1320,17 @@ class BrowserManager:
         await self.browser.set_cookies(storage["cookies"])
 
         if storage.get("origins"):
-            for origin in storage["origins"].keys():
-                await loadLocalStorage(self.browser, origin, storage["origins"][origin]["localStorage"])
+            for origin, s in storage["origins"].items():
+                await loadOriginStorage(self.browser, origin, s["localStorage"], s["indexedDB"])
 
         self._origins = set(storage["origins"].keys())
 
-async def getLocalStorage(browser: Chrome, origin: str) -> dict[str, str]:
+
+STORAGE_JS = (Path(__file__).parent / "data" / "storage.js").read_text(encoding="utf-8")
+
+async def getOriginStorage(browser: Chrome, origin: str) -> tuple[dict[str, str], list[dict[str, Any]]]:
+    ''' Gets localStorage and indexedDB '''
+
     # This tab is deliberately created in the SAME context.
     temp = await browser.new_tab()
 
@@ -1337,19 +1342,24 @@ async def getLocalStorage(browser: Chrome, origin: str) -> dict[str, str]:
 
     try:
         await temp.go_to(origin)  # origin is real; response body is synthetic
-        # local storage
         result = await temp.execute_script(
             "return Object.entries(localStorage)",
             return_by_value=True,
         )
         localStorage = dict(result["result"]["result"]["value"])
-        return localStorage
+
+        result = await temp.execute_script(
+            STORAGE_JS + "; getIndexedDB();", return_by_value=True, await_promise=True,
+        )
+        indexedDB = list(result["result"]["result"]["value"])
+
+        return localStorage, indexedDB
     finally:
         await temp.remove_callback(routeID)
         await temp.disable_fetch_events() # type: ignore[no-untyped-call]
         await temp.close()  # type: ignore[no-untyped-call]
 
-async def loadLocalStorage(browser: Chrome, origin: str, items: dict[str, str]) -> None:
+async def loadOriginStorage(browser: Chrome, origin: str, localStorage: dict[str, str], indexedDB: list[dict[str, Any]]) -> None:
     temp = await browser.new_tab()
 
     await temp.enable_fetch_events(resource_type=ResourceType.DOCUMENT)
@@ -1361,12 +1371,15 @@ async def loadLocalStorage(browser: Chrome, origin: str, items: dict[str, str]) 
     try:
         await temp.go_to(origin)  # origin is real; response body is synthetic
 
-        pairs = json.dumps(list(items.items()))
+        pairs = json.dumps(list(localStorage.items()))
         await temp.execute_script(f"""
             localStorage.clear();
             for (const [name, value] of {pairs})
                 localStorage.setItem(name, value);
             """)
+        result = await temp.execute_script(STORAGE_JS + f"; loadIndexedDB({json.dumps(indexedDB)});", await_promise=True)
+        if result["result"]["result"]["value"] != True: 
+            raise APIException(f"Could not load indexed DB for origin {origin}")
     finally:
         await temp.remove_callback(routeID)
         await temp.disable_fetch_events() # type: ignore[no-untyped-call]

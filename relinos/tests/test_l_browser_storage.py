@@ -230,7 +230,7 @@ class TestBrowserStorage(unittest.TestCase):
         for _ in range(2):
             data = {
                 "url": testServerUrl + "/indexeddb",
-                "cache": "0s",
+                "cache": "0s", "actions": [["actionSleep", "1", ""]],
                 "render": True,
                 "format": "json", "extraction": {
                     "value": { "$xpath": "//*[@id='value']" }
