@@ -1332,7 +1332,7 @@ async def getOriginStorage(browser: Chrome, origin: str) -> tuple[dict[str, str]
     ''' Gets localStorage and indexedDB '''
 
     # This tab is deliberately created in the SAME context.
-    temp = await browser.new_tab()
+    temp = await browser.new_tab(background=True)
 
     await temp.enable_fetch_events(resource_type=ResourceType.DOCUMENT)
     routeID = await temp.on(
@@ -1360,7 +1360,7 @@ async def getOriginStorage(browser: Chrome, origin: str) -> tuple[dict[str, str]
         await temp.close()  # type: ignore[no-untyped-call]
 
 async def loadOriginStorage(browser: Chrome, origin: str, localStorage: dict[str, str], indexedDB: list[dict[str, Any]]) -> None:
-    temp = await browser.new_tab()
+    temp = await browser.new_tab(background=True)
 
     await temp.enable_fetch_events(resource_type=ResourceType.DOCUMENT)
     routeID = await temp.on(
