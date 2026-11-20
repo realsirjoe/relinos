@@ -11,6 +11,9 @@ import hashlib
 import types
 import requests
 import socket
+import imaplib
+import email
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -480,3 +483,80 @@ def getPrivateIP() -> str:
     ip = s.getsockname()[0]
     s.close()
     return str(ip)
+
+def findEmailServer(domain: str) -> str|None:
+    IMAP_SERVERS = {
+        "gmail.com": "imap.gmail.com",
+        "outlook.com": "outlook.office365.com",
+        "hotmail.com": "outlook.office365.com",
+        "live.com": "outlook.office365.com",
+        "msn.com": "outlook.office365.com",
+        "yahoo.com": "imap.mail.yahoo.com",
+        "yahoo.co.uk": "imap.mail.yahoo.com",
+        "aol.com": "imap.aol.com",
+        "icloud.com": "imap.mail.me.com",
+        "gmx.com": "imap.gmx.com",
+    }
+    
+    tryHosts = ["imap." + domain, "mail." + domain]
+    if domain in IMAP_SERVERS: tryHosts = [IMAP_SERVERS[domain]]
+
+    # finding the correct server
+    for host in tryHosts:
+        try: 
+            with imaplib.IMAP4_SSL(host, 993, timeout=5) as mail: return host
+        except (OSError, imaplib.IMAP4.error): 
+            pass
+
+    return None
+
+def getEmails(host: str, username: str, password: str, afterTime: int = 0, limit: int = 10) -> list[dict]:
+    if limit <= 0: return []
+
+    emails = []
+    with imaplib.IMAP4_SSL(host, 993, timeout=10) as mail:
+        mail.login(username, password)
+        mail.select("INBOX", readonly=True)
+
+        if afterTime:
+            startDate = datetime.fromtimestamp(afterTime, timezone.utc)
+            imapDate = (startDate - timedelta(days=1)).strftime("%d-%b-%Y")
+            status, data = mail.uid("search", None, "SINCE", imapDate)
+        else:
+            status, data = mail.uid("search", None, "ALL")
+        if status != "OK":
+            raise RuntimeError("Failed to search inbox")
+
+        uids = data[0].split()[-limit:]
+
+        for uid in reversed(uids): # sort newest first
+            status, data = mail.uid("fetch", uid, "(BODY.PEEK[])")
+            if status != "OK": continue
+
+            raw = next(
+                (item[1] for item in data if isinstance(item, tuple)),
+                None,
+            )
+            if raw is None: continue
+
+            msg = email.message_from_bytes(raw, policy=email.policy.default)
+            if afterTime:
+                if "Date" not in msg: continue
+                try: messageTime = email.utils.parsedate_to_datetime(msg["Date"]).timestamp()
+                except Exception: continue
+                if messageTime < afterTime: continue
+
+            body = msg.get_body(preferencelist=("plain", "html"))
+            content = body.get_content() if body else ""
+
+            emails.append({
+                "uid": uid.decode(),
+                "from": msg.get("From"),
+                "fromDomain": email.utils.parseaddr(msg.get("From"))[1], 
+                "to": msg.get("To"),
+                "subject": msg.get("Subject", ""),
+                "date": msg.get("Date"),
+                "body": content,
+            })
+
+    return emails

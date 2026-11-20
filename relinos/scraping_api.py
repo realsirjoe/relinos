@@ -39,7 +39,7 @@ from lxml import html
 from fastapi import HTTPException
 
 from relinos.config import dbPath, storageDirPath, cacheDirPath, cacheDBPath, debugDirPath, dumpDirPath, browserWorkerPort
-from relinos.tools import createPdfFromFolder, addCaption, addRedBorder, createHtmlPagesViewer, generateSignature, serialize, deserialize, int_number_re, float_number_re, writeFileAtomic
+from relinos.tools import createPdfFromFolder, addCaption, addRedBorder, createHtmlPagesViewer, generateSignature, serialize, deserialize, int_number_re, float_number_re, writeFileAtomic, getEmails, findEmailServer
 from relinos.parse import generateUrlName, parseHtml, JsonType
 from relinos.normalize import removeEmptyFields, fuseData
 from relinos.markdown import htmlToMarkdown
@@ -127,6 +127,72 @@ class APIException(Exception):
 
 class ScrapingException(Exception):
     pass
+
+def findOTPCandidates(messages: list[tuple[str, str]]) -> list[tuple[str, str|None, str|None]]:
+    candidates = []
+    for sender, message in messages:
+        urlRe = r'https?://[^/]+\.[^/]+/[^\s)\]]+'
+
+        urls = re.findall(urlRe, message)
+        otpUrl = None
+        tokenUrlRegexes = [
+            r"(?i)[?&](?:activation|verify|verification|confirmation)(?:[-_]?(?:code|token))?=([^&#\s]+)",
+            # Token-looking hexadecimal URL fragment
+            r'[/=][A-Fa-f0-9]{14,}[/&]?',
+            # Token-looking base64-ish URL fragment
+            r'[/=][A-Za-z0-9+/_=]{30,}[/&]?',
+        ]
+        for tokenUrlRe in tokenUrlRegexes:
+            matches = [url for url in urls if re.findall(tokenUrlRe, url)]
+            if len(matches) == 1: otpUrl = matches[0]; break
+
+        otpRegexes = [
+            # Hyphenated OTP e.g. 1-2-3-4
+            r'[\s*]((?:\d-){3,7}\d)[\s*]', 
+            # Numeric OTP 4-8 digits on a seperate line
+            r'(?m)^[ \t*]*(\d{4,8})[ \t*]*$',
+            # Numeric OTP 4–8 digits surrounded by whitespace or *
+            r'[\s*](\d{4,8})[\s*]', 
+        ]
+        code = None
+        for otpRe in otpRegexes:
+            matches = re.findall(otpRe, message)
+            if len(matches) > 0: code = matches[0]; break
+
+        if otpUrl or code: candidates.append((sender, code, otpUrl))
+
+    return candidates
+
+def findOTP(emailAddr: str, password: str, domain: str = "", afterTime: int = 0, maxDuration: int = 30, pollInterval: int = 2) -> tuple[str|None, str|None]:
+    '''
+    Finds the one time code sent to an email address
+    can filter for domain and > afterTime
+    '''
+    deadline = time.monotonic() + maxDuration
+
+    emailRe = r"[^@\s]+@[^@\s]+\.[^@\s]+"
+    if not re.fullmatch(emailRe, emailAddr): raise APIException("Invalid OTP Email Address")
+    if maxDuration <= 0 or pollInterval <= 0: raise APIException("Invalid maxDuration or pollInterval")
+
+    emailDomain = emailAddr.split("@", 1)[1].lower()
+    host = findEmailServer(emailDomain)
+    if host == None: raise APIException(f"Could not find working email server for domain {emailDomain}")
+
+    while time.monotonic() < deadline:
+        messages = getEmails(host, emailAddr, password, afterTime=afterTime)
+        parsedMessages = [
+            (
+                message["fromDomain"],
+                message["subject"] + "\n" + htmlToMarkdown(message["body"])
+            ) for message in messages
+        ]
+        candidates = findOTPCandidates(parsedMessages)
+        candidates = [c for c in candidates if (c[0].endswith("@" + domain) or c[0].endswith("." + domain))]
+        if len(candidates) != 0: return candidates[0][1], candidates[0][2]
+
+        time.sleep(pollInterval)
+
+    raise APIException("OTP not received in time")
 
 actionSleep =            "actionSleep"
 actionClick =            "actionClick"
