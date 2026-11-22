@@ -266,6 +266,7 @@ class TestBrowserStorage(unittest.TestCase):
         for _ in range(2):
             data = {
                 "url": testServerUrl + "/indexeddb",
+                "actions": [["actionSleep", "1", ""]],
                 "cache": "0s",
                 "render": True, "sessionID": sessionID,
                 "format": "json", "extraction": {
