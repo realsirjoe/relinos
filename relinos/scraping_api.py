@@ -17,6 +17,7 @@ import sqlite3
 from datetime import datetime
 from functools import partial
 import platform
+from cryptography.fernet import Fernet
 
 from pydoll.utils import validate_browser_paths
 from pydoll.constants import PageLoadState
@@ -41,7 +42,7 @@ from fastapi import HTTPException
 from relinos.config import dbPath, storageDirPath, cacheDirPath, cacheDBPath, debugDirPath, dumpDirPath, browserWorkerPort
 from relinos.tools import createPdfFromFolder, addCaption, addRedBorder, createHtmlPagesViewer, generateSignature, serialize, deserialize, int_number_re, float_number_re, writeFileAtomic, getEmails, findEmailServer
 from relinos.parse import generateUrlName, parseHtml, JsonType
-from relinos.normalize import removeEmptyFields, fuseData
+from relinos.normalize import removeEmptyFields, fuseData, urlToDomain
 from relinos.markdown import htmlToMarkdown
 
 import logging
@@ -205,6 +206,7 @@ actionFilterAttribute =  "actionFilterAttribute"
 actionFilterIndex =      "actionFilterIndex"
 actionExecuteScript =    "actionExecuteScript"
 actionGoTo =             "actionGoTo"
+actionFillOTP =          "actionFillOTP"
 
 class Action:
     typ: str
@@ -990,25 +992,39 @@ async def deepFindElements(tab: Tab, xpath: str) -> list[WebElement]:
                 return matches
     return []
 
-async def loadStorage(browser: "BrowserManager", sessionID: str, maxAgeSeconds: int = 3000) -> None:
-    success, storage, _, _ = getCache(sessionID, maxAgeSeconds)
-    if success: await browser.loadStorage(storage)
+def getKey(sessionID: str) -> bytes:
+    key = hashlib.sha256(bytes.fromhex(sessionID)).digest()
+    return base64.urlsafe_b64encode(key)
 
-async def saveStorage(browser: "BrowserManager", sessionID: str) -> None:
-    storage = await browser.getStorage()
-    setCache(sessionID, storage, "", ".session")
+def encrypt(sessionID: str, value: str) -> str:
+    return Fernet(getKey(sessionID)).encrypt(value.encode()).decode()
 
-def loadStorageUnrendered(session: AsyncSession, sessionID: str, maxAgeSeconds: int = 3000) -> None:
+def decrypt(sessionID: str, value: str) -> str:
+    return Fernet(getKey(sessionID)).decrypt(value.encode()).decode()
+
+async def loadStorage(sessionID: str, maxAgeSeconds: int = 3000, browser: "BrowserManager"|None = None, reqSession: AsyncSession|None = None) -> dict[str, str]:
     success, rawStorage, _, _ = getCache(sessionID, maxAgeSeconds)
-    if success:
-        storage = json.loads(rawStorage)
-        for c in storage["cookies"]:
-            session.cookies.set(
+    if not success:
+        raise APIException("Invalid or expired sessionID. Use POST /sessions to create a sessionID.")
+
+    rawStorage = decrypt(sessionID, rawStorage)
+    storage = json.loads(rawStorage)
+
+    if "config" not in storage:
+        raise APIException("Invalid sessionID. Use POST /sessions to create a sessionID.")
+
+    if browser != None:
+        await browser.loadStorage(storage)
+    # unrendered
+    elif reqSession != None:
+        for c in storage.get("cookies", []):
+            reqSession.cookies.set(
                 name=c["name"], value=c["value"], domain=c["domain"],
                 path=c["path"], secure=c["secure"],
             )
+    return storage["config"]
 
-def saveStorageUnrendered(session: AsyncSession, sessionID: str) -> None:
+def requestsGetStorage(session: AsyncSession) -> JsonType:
     storage = {"cookies": []}
     for c in session.cookies.jar:
         data = {
@@ -1023,12 +1039,39 @@ def saveStorageUnrendered(session: AsyncSession, sessionID: str) -> None:
             "sourcePort": -1,
         }
         storage["cookies"].append(data)
+    return storage
 
-    setCache(sessionID, json.dumps(storage), "", ".session")
+async def saveStorage(sessionID: str, browser: "BrowserManager"|None = None, reqSession: AsyncSession|None = None, config: dict[str, str]|None = None, updateOnly: bool = True) -> None:
+    if browser != None:
+        storage = await browser.getStorage()
+    # unrendered
+    elif reqSession != None:
+        storage = requestsGetStorage(reqSession)
+    else:
+        storage = {}
 
-async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime: int, tempDir: str, debugDir: str, debug: bool = True) -> None:
+    if config != None:
+        storage["config"] = config
+
+    # copy old storage values if top level keys not present in new storage
+    success, oldRawStorage, _, _ = getCache(sessionID, maxAgeSeconds=99999999)
+    if success:
+        oldStorage = json.loads(decrypt(sessionID, oldRawStorage))
+        for key in oldStorage.keys():
+            if key not in storage:
+                storage[key] = oldStorage[key]
+
+    if storage:
+        setCache(sessionID, encrypt(sessionID, json.dumps(storage)), "", ".session", updateOnly=updateOnly)
+
+def deleteStorage(sessionID: str):
+    clearCache(sessionID, 0)
+
+async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime: int, tempDir: str, debugDir: str, debug: bool = True, sessionConfig: dict[str, str]|None = None) -> None:
     tmp = None
     debugMsg = ""
+    if not sessionConfig: sessionConfig = {}
+
     try:
         await browser.takeScreenshot(tempDir, "Page before actions", startTime)
 
@@ -1122,6 +1165,32 @@ async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime
                 debugMsg = f"{iS} Execute javascript"
                 logger.debug(debugMsg)
                 await browser.page.execute_script(action.v0)
+            elif action.typ == actionFillOTP:
+                debugMsg = f"{iS} Finding and filling otp"
+                logger.debug(debugMsg)
+                if "otpEmail" not in sessionConfig or "otpEmailPassword" not in sessionConfig:
+                    raise APIException("Create a session with 'otpEmail' and 'otpEmailPassword', to auto fill otp")
+
+                currentUrl = await browser.page.current_url
+                domain = urlToDomain(currentUrl)
+                # we just want the registrable domain ( e.g. a.abc.example.com => example.com )
+                domain = ".".join(domain.split(".")[-2:])
+
+                code, _ = await asyncio.to_thread(
+                    findOTP,
+                    sessionConfig["otpEmail"],
+                    sessionConfig["otpEmailPassword"],
+                    domain,
+                    time.time() - 10,
+                )
+                if not code: raise APIException("Could not find OTP")
+
+                if not tmp:
+                    raise ScrapingException("No elements selected")
+                if len(tmp) > 1:
+                    raise ScrapingException(f"Selection ambigous, {len(tmp)} elements selected")
+                else:
+                    await tmp[0].type_text(code, humanize=False)
             else:
                 raise APIException(f"Invalid action '{action.typ}'")
 
@@ -1395,7 +1464,7 @@ class BrowserManager:
 
         self.proxy = proxyStr
 
-    async def getStorage(self) -> str:
+    async def getStorage(self) -> JsonType:
         storage: dict[str, Any] = {}
 
         cookies = await self.browser.get_cookies()
@@ -1407,13 +1476,13 @@ class BrowserManager:
             storage["origins"][origin] = {
                 "localStorage": localStorage, "indexedDB": indexedDB
             }
-        return json.dumps(storage)
+        return storage
 
-    async def loadStorage(self, storageData: str) -> None:
-        storage = json.loads(storageData)
-        await self.browser.set_cookies(storage["cookies"])
+    async def loadStorage(self, storage: JsonType) -> None:
+        if "cookies" in storage:
+            await self.browser.set_cookies(storage["cookies"])
 
-        if storage.get("origins"):
+        if "origins" in storage:
             for origin, s in storage["origins"].items():
                 if s.get("localStorage") != None and s.get("indexedDB") != None:
                     await loadOriginStorage(self.browser, origin, s["localStorage"], s["indexedDB"])
@@ -1575,7 +1644,7 @@ def createCache() -> None:
 
 createCache()
 
-def setCache(signatureStr: str, response: str, finalUrl: str, contentType: str) -> None:
+def setCache(signatureStr: str, response: str, finalUrl: str, contentType: str, updateOnly: bool = False) -> None:
     """
     One never practically encounters a collision on random data on sha1 in a lifetime
     Even if one does this is just a cache, not critical data
@@ -1588,6 +1657,11 @@ def setCache(signatureStr: str, response: str, finalUrl: str, contentType: str) 
     key = sha1(signatureStr)
     isEmpty = 1 if response == "" else 0
     with sqlite3.connect(cacheDBPath) as conn:
+        if updateOnly:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT 1 FROM cache WHERE key = ?", (key,)).fetchone()
+            if row is None: raise APIException("Can only add new cache entries with updateOnly = False")
+
         conn.execute("""
             INSERT INTO cache ("key", finalUrl, contentType, isEmpty) VALUES (?, ?, ?, ?)
             ON CONFLICT("key") DO UPDATE SET
@@ -1640,13 +1714,18 @@ def getCache(signatureStr: str, maxAgeSeconds: int = 0) -> tuple[bool, str, str,
     else:
         return False, "", "", ""
 
-def clearCache(maxAgeSeconds: int) -> None:
+def clearCache(signatureStr: str = "", maxAgeSeconds: int = 0) -> None:
     ''' cleans up cache thats older than maxAgeSeconds '''
     with sqlite3.connect(cacheDBPath) as conn:
         conn.execute("BEGIN IMMEDIATE")
 
-        minCreatedAt = int(time.time()) - maxAgeSeconds
-        rows = conn.execute('SELECT key FROM cache WHERE createdAt<?', (minCreatedAt,)).fetchall()
+        minCreatedAt = int(time.time()) - maxAgeSeconds + 1
+        if signatureStr:
+            key = sha1(signatureStr)
+            rows = conn.execute('SELECT key FROM cache WHERE key = ? AND createdAt<?', (key, minCreatedAt,)).fetchall()
+        else:
+            rows = conn.execute('SELECT key FROM cache WHERE createdAt<?', (minCreatedAt,)).fetchall()
+
         for row in rows:
             key = row[0]
             idStart = key[:2]
@@ -1654,7 +1733,11 @@ def clearCache(maxAgeSeconds: int) -> None:
             filePath = Path(os.path.join(cacheDirPath, f"{idStart}/{idTail}.html"))
             if filePath.exists(): os.remove(str(filePath))
 
-        conn.execute('DELETE FROM cache WHERE createdAt<?', (minCreatedAt,))
+        if signatureStr:
+            key = sha1(signatureStr)
+            conn.execute('DELETE FROM cache WHERE key = ? AND createdAt<?', (key, minCreatedAt,))
+        else:
+            conn.execute('DELETE FROM cache WHERE createdAt<?', (minCreatedAt,))
 
 async def screenshotLoop(browser: BrowserManager, dirPath: str, debugMsg: str, startTime: int) -> None:
     try:
@@ -1852,12 +1935,12 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
                 
     elif not cachedFound:
         async with AsyncSession() as s:
-            if useStorage: loadStorageUnrendered(session=s, sessionID=sessionID)
+            if useStorage: await loadStorage(sessionID=sessionID, reqSession=s)
             r = await s.get(url, impersonate="chrome", proxy=proxy)
             finalUrl = r.url
             htmlSrc = r.text
             contentType = r.headers.get("content-type", "")
-            if useStorage: saveStorageUnrendered(session=s, sessionID=sessionID)
+            if useStorage: await saveStorage(sessionID=sessionID, reqSession=s)
 
     if debug:
         with open(os.path.join(userDebugDir, f"{int(time.time() * 1000)}_final_site.html"), "w") as f: f.write(htmlSrc)

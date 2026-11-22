@@ -225,10 +225,10 @@ async def request(req: BrowserRequestModel) -> Response:
             tempDir = mkdtemp()
             startTime = int(time.time())
             await browser.setProxy(req.proxy)
-            if req.useStorage: await loadStorage(browser, req.sessionID)
+            sessionConfig = {}
+            if req.useStorage: sessionConfig = await loadStorage(req.sessionID, browser=browser)
             if req.url: actions = [Action("actionGoTo", req.url, "")] + actions
-            if actions: await ActionLoop(browser, actions=actions, startTime=startTime, tempDir=tempDir, debugDir=userDebugDir, debug=req.debug)
-            if req.useStorage: await saveStorage(browser, req.sessionID)
+            if actions: await ActionLoop(browser, actions=actions, startTime=startTime, tempDir=tempDir, debugDir=userDebugDir, debug=req.debug, sessionConfig=sessionConfig)
 
             # save page source for inspection
             htmlSrc = await browser.page.page_source_real
@@ -241,6 +241,12 @@ async def request(req: BrowserRequestModel) -> Response:
             if req.debug:
                 with open(os.path.join(userDebugDir, "error_site.html"), "w") as f: f.write(htmlSrc)
             raise
+        else:
+            if req.useStorage:
+                await saveStorage(req.sessionID, browser=browser)
+        finally:
+            if req.useStorage:
+                await browser.clearContext()
 
         return Response(json.dumps({
             "sessionID": req.sessionID,

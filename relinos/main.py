@@ -14,7 +14,7 @@ from starlette.types import Scope
 
 from relinos.config import debugDirPath, serverName
 
-from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, addRoutine, kindStr, deleteRoutine
+from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, addRoutine, kindStr, deleteRoutine, saveStorage, deleteStorage
 from relinos.normalize import urlToDomain, keyCounts
 from relinos.parse import getCoverageScore, ParseException, JsonType
 from relinos.tools import serialize, deserialize
@@ -50,6 +50,12 @@ def parsePagination(modelPagination: tuple[str, str]|None) -> Pagination|None:
         pagination = None
 
     return pagination
+
+class CreateSessionModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    otpEmail: str = ""
+    otpEmailPassword: str = ""
 
 class GetRequestModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -168,14 +174,28 @@ async def globalExceptionHandler(request: Request, exc: Exception) -> Response:
 
     return await customExceptionHandler(request, httpExc)
 
-@app.post("/session")
-async def generateSessionID() -> JSONResponse:
-    return JSONResponse({ "sessionID": str(uuid.uuid4().hex) })
+@app.post("/sessions")
+async def createSession(req: CreateSessionModel|None = None) -> JSONResponse:
+    if req and ((req.otpEmail == "") != (req.otpEmailPassword == "")):
+        raise HTTPException(status_code=400, detail="otpEmail and otpEmailPassword always must be specified together")
+
+    config = {}
+    if req and req.otpEmail:
+        config["otpEmail"] = req.otpEmail
+        config["otpEmailPassword"] = req.otpEmailPassword
+
+    sessionID = str(uuid.uuid4().hex)
+    await saveStorage(sessionID, config=config, updateOnly=False)
+    return JSONResponse({ "sessionID": sessionID })
+
+@app.delete("/sessions/{sessionID}")
+async def deleteSession(request: Request, sessionID: str) -> None:
+    deleteStorage(sessionID)
 
 sessionIDRe = re.compile(r"^[0-9a-f]{32}$")
 def validateSessionID(sessionID: str) -> None:
     if not sessionIDRe.fullmatch(sessionID):
-        raise APIException("Invalid sessionID. Use POST /session to create a sessionID.")
+        raise APIException("Invalid sessionID. Use POST /sessions to create a sessionID.")
 
 # Practically guessing any uuid4 (or any random 128 bit string) is impossible 
 # even with 1 billion tries per second it would take vastly longer than the age of the universe.

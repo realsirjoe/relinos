@@ -147,7 +147,7 @@ class TestBrowserStorage(unittest.TestCase):
         cls.thread.join()
 
     def testCookiesUnrendered(self) -> None:
-        resp = requests.post(serverName + "/session")
+        resp = requests.post(serverName + "/sessions")
         sessionID = json.loads(resp.text)["sessionID"]
 
         # calling twice with the same sessionID should find the same set cookie and match
@@ -180,7 +180,7 @@ class TestBrowserStorage(unittest.TestCase):
         self.assertNotEqual(values[0], values[1])
 
     def testCookies(self) -> None:
-        resp = requests.post(serverName + "/session")
+        resp = requests.post(serverName + "/sessions")
         sessionID = json.loads(resp.text)["sessionID"]
 
         # calling twice with the same sessionID should find the same set cookie and match
@@ -218,7 +218,7 @@ class TestBrowserStorage(unittest.TestCase):
         self.assertNotEqual(values[0], values[1])
 
     def testLocalStorage(self) -> None:
-        resp = requests.post(serverName + "/session")
+        resp = requests.post(serverName + "/sessions")
         sessionID = json.loads(resp.text)["sessionID"]
 
         # calling twice with the same sessionID should find the same localStorage value and match
@@ -258,7 +258,7 @@ class TestBrowserStorage(unittest.TestCase):
         self.assertNotEqual(values[0], values[1])
 
     def testIndexedDB(self) -> None:
-        resp = requests.post(serverName + "/session")
+        resp = requests.post(serverName + "/sessions")
         sessionID = json.loads(resp.text)["sessionID"]
 
         # calling twice with the same sessionID should find the same indexedDB value and match
