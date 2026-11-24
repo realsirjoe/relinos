@@ -14,6 +14,11 @@ import socket
 import imaplib
 import email
 from datetime import datetime, timezone, timedelta
+import urllib
+import base64
+import time
+import struct
+import hmac
 
 logger = logging.getLogger(__name__)
 
@@ -560,3 +565,30 @@ def getEmails(host: str, username: str, password: str, afterTime: int = 0, limit
             })
 
     return emails
+
+##################### OTP ###################
+
+def totp(uri: str) -> str:
+    '''
+    RFC 6238 Time-Based One Time Password
+    example uri: otpauth://totp/Example?secret=abcdefabcdef" 
+    '''
+    p = urllib.parse.urlparse(uri)
+    if p.scheme != "otpauth" or p.netloc != "totp":
+        raise ValueError("Invalid TOTP URI")
+
+    q = urllib.parse.parse_qs(p.query)
+    secret = q["secret"][0].upper()
+    key = base64.b32decode(secret + "=" * (-len(secret) % 8))
+
+    period = int(q.get("period", [30])[0])
+    digits = int(q.get("digits", [6])[0])
+    algo = getattr(hashlib, q.get("algorithm", ["SHA1"])[0].lower())
+
+    counter = int(time.time() // period)
+    msg = struct.pack(">Q", counter)
+    digest = hmac.new(key, msg, algo).digest()
+    offset = digest[-1] & 15
+    code = struct.unpack(">I", digest[offset:offset+4])[0] & 0x7fffffff
+
+    return str(code % (10 ** digits)).zfill(digits)

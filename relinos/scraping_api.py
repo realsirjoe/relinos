@@ -207,6 +207,7 @@ actionFilterIndex =      "actionFilterIndex"
 actionExecuteScript =    "actionExecuteScript"
 actionGoTo =             "actionGoTo"
 actionFillOTP =          "actionFillOTP"
+actionFillTOTP =         "actionFillTOTP"
 
 class Action:
     typ: str
@@ -1185,6 +1186,17 @@ async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime
                 )
                 if not code: raise APIException("Could not find OTP")
 
+                if not tmp:
+                    raise ScrapingException("No elements selected")
+                if len(tmp) > 1:
+                    raise ScrapingException(f"Selection ambigous, {len(tmp)} elements selected")
+                else:
+                    await tmp[0].type_text(code, humanize=False)
+            elif action.typ == actionFillTOTP:
+                debugMsg = f"{iS} Filling totp"
+                logger.debug(debugMsg)
+
+                code = totp(action.v0)
                 if not tmp:
                     raise ScrapingException("No elements selected")
                 if len(tmp) > 1:
