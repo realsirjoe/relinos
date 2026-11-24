@@ -1274,7 +1274,6 @@ class BrowserManager:
     contextID: str
     page: Tab
     isOpen: bool
-    isClone: bool
     humanize: bool
     proxy: str
 
@@ -1291,7 +1290,6 @@ class BrowserManager:
         self.displayNumber = ""
         self.contextID = ""
         self.isOpen = False
-        self.isClone = False
         self.humanize = humanize
         self.proxy = ""
 
@@ -1342,23 +1340,9 @@ class BrowserManager:
         if isError: addRedBorder(screenshotPath)
         addCaption(screenshotPath, debugMsg)
 
-    async def cloneBrowser(self) -> "BrowserManager":
-        contextID = await self.browser.create_browser_context()
-        page = await self.browser.new_tab('', browser_context_id=contextID)
-        newBrowser = BrowserManager()
-        newBrowser.isClone = True
-        newBrowser.page = page
-        newBrowser.browser = self.browser
-        newBrowser.contextID = contextID
-        newBrowser.isOpen = self.isOpen
-        newBrowser.displayNumber = self.displayNumber
-        newBrowser.humanize = self.humanize
-        newBrowser.proxy = self.proxy
-        return newBrowser
-
     async def open(self) -> None:
         self.gotoCount = 0
-        if not self.isClone and not self.isOpen:
+        if not self.isOpen:
             displayNumberStr = ""
             if self.typ == browserLinuxXVFB:
                 self.virtualFrameBufferProcess = subprocess.Popen(
@@ -1408,7 +1392,7 @@ class BrowserManager:
             )
 
     async def close(self) -> None: 
-        if not self.isClone and self.isOpen:
+        if self.isOpen:
             try:
                 await self.page.remove_callback(self.frameNavigatedCallbackID)
             except:
