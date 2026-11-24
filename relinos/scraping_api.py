@@ -1169,8 +1169,8 @@ async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime
             elif action.typ == actionFillOTP:
                 debugMsg = f"{iS} Finding and filling otp"
                 logger.debug(debugMsg)
-                if "otpEmail" not in sessionConfig or "otpEmailPassword" not in sessionConfig:
-                    raise APIException("Create a session with 'otpEmail' and 'otpEmailPassword', to auto fill otp")
+                if (not action.v0 or not action.v1) and ("otpEmail" not in sessionConfig or "otpEmailPassword" not in sessionConfig):
+                    raise APIException("Create a session with 'otpEmail' and 'otpEmailPassword' to auto fill otp")
 
                 currentUrl = await browser.page.current_url
                 domain = urlToDomain(currentUrl)
@@ -1179,8 +1179,8 @@ async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime
 
                 code, _ = await asyncio.to_thread(
                     findOTP,
-                    sessionConfig["otpEmail"],
-                    sessionConfig["otpEmailPassword"],
+                    sessionConfig.get("otpEmail", action.v0),
+                    sessionConfig.get("otpEmailPassword", action.v1),
                     domain,
                     time.time() - 10,
                 )
@@ -1195,8 +1195,10 @@ async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime
             elif action.typ == actionFillTOTP:
                 debugMsg = f"{iS} Filling totp"
                 logger.debug(debugMsg)
+                if not action.v0 and "totpUri" not in sessionConfig:
+                    raise APIException("Create a session with 'totpUri' to auto fill totp")
 
-                code = totp(action.v0)
+                code = totp(sessionConfig.get("totpUri", action.v0))
                 if not tmp:
                     raise ScrapingException("No elements selected")
                 if len(tmp) > 1:

@@ -173,6 +173,8 @@ You can perform browser interactions, such as clicking or typing, through the `a
 |actionFilterIndex      |index          |-                   |
 |actionExecuteScript    |javascript     |-                   |
 |actionGoTo             |url            |-                   |
+|actionFillOTP          |otp email      |otp email password  |
+|actionFillTOTP         |totp uri       |-                   |
 
 
 This example searches a site

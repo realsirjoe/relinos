@@ -57,6 +57,8 @@ class CreateSessionModel(BaseModel):
     otpEmail: str = ""
     otpEmailPassword: str = ""
 
+    totpUri: str = ""
+
 class GetRequestModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -183,6 +185,9 @@ async def createSession(req: CreateSessionModel|None = None) -> JSONResponse:
     if req and req.otpEmail:
         config["otpEmail"] = req.otpEmail
         config["otpEmailPassword"] = req.otpEmailPassword
+
+    if req and req.totpUri:
+        config["totpUri"] = req.totpUri
 
     sessionID = str(uuid.uuid4().hex)
     await saveStorage(sessionID, config=config, updateOnly=False)
