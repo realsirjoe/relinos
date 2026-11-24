@@ -197,6 +197,7 @@ async def createSession(req: CreateSessionModel|None = None) -> JSONResponse:
 async def deleteSession(request: Request, sessionID: str) -> None:
     deleteStorage(sessionID)
 
+#TODO should we still validate sessionID since they now all need to be created via POST /sessions, serverside anyways
 sessionIDRe = re.compile(r"^[0-9a-f]{32}$")
 def validateSessionID(sessionID: str) -> None:
     if not sessionIDRe.fullmatch(sessionID):

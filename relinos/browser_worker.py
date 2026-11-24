@@ -246,6 +246,7 @@ async def request(req: BrowserRequestModel) -> Response:
                 await saveStorage(req.sessionID, browser=browser)
         finally:
             if req.useStorage:
+                # to avoid live cookie/storage changes after saveStorage we clear the context, which goes to a blank page
                 await browser.clearContext()
 
         return Response(json.dumps({
