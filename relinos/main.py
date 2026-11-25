@@ -202,30 +202,30 @@ def validateSessionID(sessionID: str) -> None:
     if not sessionIDRe.fullmatch(sessionID):
         raise APIException("Invalid sessionID. Use POST /sessions to create a sessionID.")
 
-# Practically guessing any uuid4 ( debugID is derived from uuid4 sessionID ) is impossible
-# even with 1 billion tries per second it would take vastly longer than the age of the universe.
-@app.get("/debug/{debugID}", response_class=HTMLResponse)
-async def debugSession(debugID: str) -> HTMLResponse:
-    if not debugID.isalnum():
-        raise HTTPException(status_code=400, detail="Invalid debugID")
+# Practically guessing any uuid4 is impossible ( sessionSignature is derived from uuid4 sessionID )
+# Even with 1 billion tries per second it would take vastly longer than the age of the universe.
+@app.get("/debug/{sessionSignature}", response_class=HTMLResponse)
+async def debugSession(sessionSignature: str) -> HTMLResponse:
+    if not sessionSignature.isalnum():
+        raise HTTPException(status_code=400, detail="Invalid sessionSignature")
 
-    userDebugDir = Path(debugDirPath) / debugID
+    sessionDir = Path(debugDirPath) / sessionSignature
 
-    if not userDebugDir.is_dir():
+    if not sessionDir.is_dir():
         return HTMLResponse("Not found", status_code=404)
 
     files = []
-    for path in sorted(userDebugDir.iterdir()):
+    for path in sorted(sessionDir.iterdir()):
         if path.is_file():
             files.append(
-                f'<li><a href="/debug/files/{debugID}/{quote(path.name)}">'
+                f'<li><a href="/debug/files/{sessionSignature}/{quote(path.name)}">'
                 f'{html.escape(path.name)}</a></li>'
             )
 
     return HTMLResponse(f"""
     <html>
         <body>
-            <h1>Debug ID {debugID}</h1>
+            <h1>Session Signature {sessionSignature}</h1>
             <ul>
                 {''.join(files)}
             </ul>
