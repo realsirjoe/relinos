@@ -40,7 +40,7 @@ from lxml import html
 from fastapi import HTTPException
 
 from relinos.config import dbPath, storageDirPath, cacheDirPath, cacheDBPath, debugDirPath, dumpDirPath, browserWorkerPort
-from relinos.tools import createPdfFromFolder, addCaption, addRedBorder, createHtmlPagesViewer, generateSignature, serialize, deserialize, int_number_re, float_number_re, writeFileAtomic, getEmails, findEmailServer
+from relinos.tools import createPdfFromFolder, addCaption, addRedBorder, createHtmlPagesViewer, generateSignature, serialize, deserialize, int_number_re, float_number_re, writeFileAtomic, getEmails, findEmailServer, totp
 from relinos.parse import generateUrlName, parseHtml, JsonType
 from relinos.normalize import removeEmptyFields, fuseData, urlToDomain
 from relinos.markdown import htmlToMarkdown
@@ -111,6 +111,7 @@ def getChrome(displayNumber: str, userDataDir: str) -> Chrome:
     args.append(f'--user-data-dir={userDataDir}')
     args.append("--use-fake-device-for-media-stream")
     args.append("--use-mock-keychain") # avoids osx asking for keychain access on startup
+    args.append('--disable-infobars') # hides infobars about other flags
 
     proxyExtension = Path(__file__).parent / "extensions" / "proxy_extension"
     args.append(f"--load-extension={proxyExtension}")
@@ -1353,8 +1354,8 @@ class BrowserManager:
                     stderr=subprocess.DEVNULL,
                     text=True
                 )
-                #TODO This waits forever may not be optimal
                 assert self.virtualFrameBufferProcess.stdout != None
+                #TODO This waits forever may not be optimal
                 self.displayNumber = self.virtualFrameBufferProcess.stdout.readline().strip()
                 if not self.displayNumber:
                     raise Exception("Could not start Xvfb, unable to assign displayNumber")
