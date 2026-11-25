@@ -1043,6 +1043,7 @@ def requestsGetStorage(session: AsyncSession) -> JsonType:
         storage["cookies"].append(data)
     return storage
 
+#NOTE on concurrent requests with the same sessionID last writer wins ( but atomic )
 async def saveStorage(sessionID: str, browser: "BrowserManager"|None = None, reqSession: AsyncSession|None = None, config: dict[str, str]|None = None, updateOnly: bool = True) -> None:
     if browser != None:
         storage = await browser.getStorage()
@@ -1887,7 +1888,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
     return htmlStrs, finalUrls, signatureStrs
 
 def getUserDebugDir(sessionID: str) -> str:
-    return os.path.join(debugDirPath, f"{sessionID}")
+    return os.path.join(debugDirPath, f"{sha1(sessionID)}")
 
 async def get(url: str, render: bool = False, actions: list[Action] = [], debug: bool=False, maxCacheAge: int = 0, proxy: str = "", browser: BrowserInfo|None = None, sessionID: str = "defaultSession", useStorage: bool = False, prevSignatureStr: str = "") -> tuple[str, str, str]:
     signatureStr: str = ""

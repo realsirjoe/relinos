@@ -14,7 +14,7 @@ from starlette.types import Scope
 
 from relinos.config import debugDirPath, serverName
 
-from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, addRoutine, kindStr, deleteRoutine, saveStorage, deleteStorage
+from relinos.scraping_api import Action, Pagination, ScrapingException, APIException, Routine, getRoutine, searchRoutines, searchExtractions, RoutineParam, getBrowser, returnBrowser, ExtractionMeta, addExtraction, getExtraction, searchExtractions, deleteExtraction, addRoutine, kindStr, deleteRoutine, saveStorage, deleteStorage, sha1
 from relinos.normalize import urlToDomain, keyCounts
 from relinos.parse import getCoverageScore, ParseException, JsonType
 from relinos.tools import serialize, deserialize
@@ -153,9 +153,8 @@ async def customExceptionHandler(request: Request, exc: HTTPException) -> Respon
     data = { "detail": exc.detail }
     headers = dict(exc.headers or {})
     if hasattr(request.state, "sessionID"):
-        headers["X-Session-ID"] = request.state.sessionID
         if getattr(request.state, "userDebug", False):
-            headers["X-Debug-URL"] = serverName + f"/debug/{request.state.sessionID}"
+            headers["X-Debug-URL"] = serverName + f"/debug/{sha1(request.state.sessionID)}"
 
     return JSONResponse(
         status_code=exc.status_code,
@@ -203,30 +202,30 @@ def validateSessionID(sessionID: str) -> None:
     if not sessionIDRe.fullmatch(sessionID):
         raise APIException("Invalid sessionID. Use POST /sessions to create a sessionID.")
 
-# Practically guessing any uuid4 (or any random 128 bit string) is impossible 
+# Practically guessing any uuid4 ( debugID is derived from uuid4 sessionID ) is impossible
 # even with 1 billion tries per second it would take vastly longer than the age of the universe.
-@app.get("/debug/{sessionID}", response_class=HTMLResponse)
-async def debugSession(sessionID: str) -> HTMLResponse:
-    if not sessionID.isalnum():
-        raise HTTPException(status_code=400, detail="Invalid sessionID")
+@app.get("/debug/{debugID}", response_class=HTMLResponse)
+async def debugSession(debugID: str) -> HTMLResponse:
+    if not debugID.isalnum():
+        raise HTTPException(status_code=400, detail="Invalid debugID")
 
-    sessionDir = Path(debugDirPath) / sessionID
+    userDebugDir = Path(debugDirPath) / debugID
 
-    if not sessionDir.is_dir():
+    if not userDebugDir.is_dir():
         return HTMLResponse("Not found", status_code=404)
 
     files = []
-    for path in sorted(sessionDir.iterdir()):
+    for path in sorted(userDebugDir.iterdir()):
         if path.is_file():
             files.append(
-                f'<li><a href="/debug/files/{sessionID}/{quote(path.name)}">'
+                f'<li><a href="/debug/files/{debugID}/{quote(path.name)}">'
                 f'{html.escape(path.name)}</a></li>'
             )
 
     return HTMLResponse(f"""
     <html>
         <body>
-            <h1>Debug {sessionID}</h1>
+            <h1>Debug ID {debugID}</h1>
             <ul>
                 {''.join(files)}
             </ul>
@@ -325,9 +324,9 @@ async def routine(request: Request, req: RoutineRequestModel) -> Response:
         if browserInfo:
             returnBrowser(browserInfo.id)
 
-    headers = { "X-Session-ID": request.state.sessionID }
+    headers = {}
     if req.debug: 
-        headers["X-Debug-URL"] = serverName + f"/debug/{sessionID}"
+        headers["X-Debug-URL"] = serverName + f"/debug/{sha1(sessionID)}"
     if req.includeMeta:
         return Response(
             json.dumps({
@@ -472,9 +471,9 @@ async def get(request: Request, req: GetRequestModel) -> Response:
         if browserInfo:
             returnBrowser(browserInfo.id)
 
-    headers = { "X-Session-ID": request.state.sessionID }
+    headers = {}
     if req.debug: 
-        headers["X-Debug-URL"] = serverName + f"/debug/{sessionID}"
+        headers["X-Debug-URL"] = serverName + f"/debug/{sha1(sessionID)}"
     if req.includeMeta:
         return Response(
             json.dumps({
