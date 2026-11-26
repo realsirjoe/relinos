@@ -140,7 +140,7 @@ Relinos lets you combine browser interactions, pagination, caching, and structur
 |------------|--------------------------------------------------------------------------|-------------------------------------|
 |url         | Downloads the url                                                        | `"https://example.com"`               |
 |render      | Renders the site through a real browser                                  | `true` or `false`                   |
-|sessionID   | To preserve cookies, localStorage and indexedDB across requests, create a sessionID with POST /sessions and include it in every request. Keep sessionIDs private and treat them like passwords! | `1375eb7adbbf4831eeabf1508cb93275`    |
+|sessionID   | To preserve cookies, localStorage and indexedDB across requests, create a sessionID with POST /sessions and include it in every request. Keep sessionIDs private and treat them like passwords! You can remove a session via DELETE /sessions/your_session_id | `1375eb7adbbf4831eeabf1508cb93275`    |
 |cache       | Picks a cached result if it was less than the specified duration ago     | `"600s"` or `"60m"` or `"2h"` or `"7d"` or `"1y"` |
 |debug       | Sends back x-debug-url header, visit the url to inspect and debug the interaction   | `true` or `false`    |
 |includeMeta | Wraps meta information around the response                               | `true` or `false`                       |
@@ -360,11 +360,15 @@ Each setting follows the format `VARIABLE=VALUE`.
 
 Restart Relinos for configuration changes to take effect.
 
-## Older Relinos Versions
+## Migrate from Older Versions
 
-If you're upgrading from Relinos 0.3, 0.2 or earlier, routine parameters have been redesigned to be simpler, more powerful, and less prone to human errors. 
+If you're upgrading from Relinos **< 0.4** routine parameters have been redesigned to be simpler, more powerful, and less prone to human errors. 
 Run 
 
-```source ~/.relinos/env/bin/activate; python3 -m relinos.migrate_routines``` 
+```source ~/.relinos/env/bin/activate; python3 -m relinos.migrate.to_0_4_routines``` 
 
 to automatically update your existing routines inside `~/.relinos` to the newest version.
+
+If you're upgrading from Relinos **< 0.7** the cache structure has changed. Run
+
+```source ~/.relinos/env/bin/activate; python3 -m relinos.migrate.to_0_7``` 

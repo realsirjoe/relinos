@@ -1065,10 +1065,10 @@ async def saveStorage(sessionID: str, browser: "BrowserManager"|None = None, req
                 storage[key] = oldStorage[key]
 
     if storage:
-        setCache(sessionID, encrypt(sessionID, json.dumps(storage)), "", ".session", updateOnly=updateOnly)
+        setCache(sessionID, encrypt(sessionID, json.dumps(storage)), "", ".session", sessionID=sessionID, updateOnly=updateOnly)
 
 def deleteStorage(sessionID: str):
-    clearCache(sessionID, 0)
+    clearCache(maxAgeSeconds=0, sessionID=sessionID)
 
 async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime: int, tempDir: str, debugDir: str, debug: bool = True, sessionConfig: dict[str, str]|None = None) -> None:
     tmp = None
@@ -1632,6 +1632,7 @@ def createCache() -> None:
                 createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
                 finalUrl TEXT,
                 contentType TEXT,
+                sessionSignature TEXT,
                 isEmpty INTEGER NOT NULL DEFAULT 0
             )
         """);
@@ -1640,11 +1641,23 @@ def createCache() -> None:
             ON cache(createdAt);
         """)
 
+        try:
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idxCacheSessionSignature
+                ON cache(sessionSignature);
+            """)
+        except sqlite3.OperationalError:
+            #TODO remove this migration note in future versions
+            raise Exception(
+                "It looks like you are still on an older version ( < 0.7 ) of relinos, "
+                "look into 'Migrate from Older Versions' on the README.md"
+            )
+
         conn.commit()
 
 createCache()
 
-def setCache(signatureStr: str, response: str, finalUrl: str, contentType: str, updateOnly: bool = False) -> None:
+def setCache(signatureStr: str, response: str, finalUrl: str, contentType: str, sessionID: str, updateOnly: bool = False) -> None:
     """
     One never practically encounters a collision on random data on sha1 in a lifetime
     Even if one does this is just a cache, not critical data
@@ -1655,6 +1668,7 @@ def setCache(signatureStr: str, response: str, finalUrl: str, contentType: str, 
     this can be useful for aggregate entries e.g. see pagination
     """
     key = sha1(signatureStr)
+    sessionSignature = sha1(sessionID)
     isEmpty = 1 if response == "" else 0
     with sqlite3.connect(cacheDBPath) as conn:
         if updateOnly:
@@ -1663,13 +1677,14 @@ def setCache(signatureStr: str, response: str, finalUrl: str, contentType: str, 
             if row is None: raise APIException("Can only add new cache entries with updateOnly = False")
 
         conn.execute("""
-            INSERT INTO cache ("key", finalUrl, contentType, isEmpty) VALUES (?, ?, ?, ?)
+            INSERT INTO cache ("key", finalUrl, contentType, isEmpty, sessionSignature) VALUES (?, ?, ?, ?, ?)
             ON CONFLICT("key") DO UPDATE SET
                 createdAt = strftime('%s', 'now'),
                 finalUrl = excluded.finalUrl,
                 contentType = excluded.contentType,
-                isEmpty = excluded.isEmpty
-        """, (key, finalUrl, contentType, isEmpty))
+                isEmpty = excluded.isEmpty,
+                sessionSignature = excluded.sessionSignature
+        """, (key, finalUrl, contentType, isEmpty, sessionSignature))
         if not isEmpty:
             idStart = key[:2]
             idTail = key[2:]
@@ -1714,17 +1729,26 @@ def getCache(signatureStr: str, maxAgeSeconds: int = 0) -> tuple[bool, str, str,
     else:
         return False, "", "", ""
 
-def clearCache(signatureStr: str = "", maxAgeSeconds: int = 0) -> None:
-    ''' cleans up cache thats older than maxAgeSeconds '''
+def clearCache(maxAgeSeconds: int = 0, signatureStr: str = "", sessionID: str = "") -> None:
+    ''' cleans up cache older than maxAgeSeconds and other requirements '''
     with sqlite3.connect(cacheDBPath) as conn:
         conn.execute("BEGIN IMMEDIATE")
 
         minCreatedAt = int(time.time()) - maxAgeSeconds + 1
+        whereClause = "WHERE createdAt < ?"
+        values: list[int|float|str] = [minCreatedAt]
+
         if signatureStr:
             key = sha1(signatureStr)
-            rows = conn.execute('SELECT key FROM cache WHERE key = ? AND createdAt<?', (key, minCreatedAt,)).fetchall()
-        else:
-            rows = conn.execute('SELECT key FROM cache WHERE createdAt<?', (minCreatedAt,)).fetchall()
+            whereClause += " AND key = ?"
+            values.append(key)
+
+        if sessionID:
+            sessionSignature = sha1(sessionID)
+            whereClause += " AND sessionSignature = ?"
+            values.append(sessionSignature)
+
+        rows = conn.execute("SELECT key FROM cache " + whereClause, values).fetchall()
 
         for row in rows:
             key = row[0]
@@ -1733,11 +1757,7 @@ def clearCache(signatureStr: str = "", maxAgeSeconds: int = 0) -> None:
             filePath = Path(os.path.join(cacheDirPath, f"{idStart}/{idTail}.html"))
             if filePath.exists(): os.remove(str(filePath))
 
-        if signatureStr:
-            key = sha1(signatureStr)
-            conn.execute('DELETE FROM cache WHERE key = ? AND createdAt<?', (key, minCreatedAt,))
-        else:
-            conn.execute('DELETE FROM cache WHERE createdAt<?', (minCreatedAt,))
+        conn.execute("DELETE FROM cache " + whereClause, values)
 
 async def screenshotLoop(browser: BrowserManager, dirPath: str, debugMsg: str, startTime: int) -> None:
     try:
@@ -1846,7 +1866,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
 
     if pagination:
         # create virtual cache entry for first page
-        setCache(multiSignatureStrRoot + "::::" + str(1), "", "", "")
+        setCache(multiSignatureStrRoot + "::::" + str(1), "", "", "", sessionID=sessionID)
 
         for i in range(int(pagination.maxPages)-1):
             actions = []
@@ -1883,7 +1903,7 @@ async def getMulti(url: str, render: bool = False, actions: list[Action] = [], d
             # virtual cache entry for every page up to maxPages
             # +1: since pagination starts at page 2, 
             # +1: 1-indexed
-            setCache(multiSignatureStrRoot + "::::" + str(i+1+1), "", "", "")
+            setCache(multiSignatureStrRoot + "::::" + str(i+1+1), "", "", "", sessionID=sessionID)
 
     return htmlStrs, finalUrls, signatureStrs
 
@@ -1946,7 +1966,7 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
         with open(os.path.join(userDebugDir, f"{int(time.time() * 1000)}_final_site.html"), "w") as f: f.write(htmlSrc)
 
     if not cachedFound:
-        setCache(signatureStr, htmlSrc, finalUrl, contentType)
+        setCache(signatureStr, htmlSrc, finalUrl, contentType, sessionID=sessionID)
 
     if "text/html" in contentType:
         htmlSrc = resolveRelativeUrls(htmlSrc, finalUrl)
