@@ -36,7 +36,7 @@ logger.info(
 )
 
 browserPoolLock = asyncio.Lock()
-browserPool: dict[int, BrowserManager] = {} #TODO since we never delete sessions we should look if memory becomes larger and larger
+browserPool: dict[int, BrowserManager] = {}
 allBrowsers: set[BrowserManager] = set() # If some browsers are in use when we want to close them they are not in browserPool but still in allBrowsers
 
 workerId: str|None = None
@@ -170,7 +170,7 @@ async def prepareRequest(clearContext: bool = True, browserNr: int = -1) -> Asyn
             # blocking cdp, even restarting websocket didn't fix the issue just killing the process, 
             # closing the browser and creating a new one is a quick fix thats not too costly 
             # since the issue doesn't happen too often
-            #TODO Verify: This also means we cannot use pydoll contexts though!!!
+            #NOTE: This means we cannot use pydoll contexts and need to use 1 tab per 1 browser!
             logger.info("Get command timeout, creating new browser")
             await browser.close()
             await browser.open()
