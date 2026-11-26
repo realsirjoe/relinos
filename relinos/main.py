@@ -196,12 +196,6 @@ async def createSession(req: CreateSessionModel|None = None) -> JSONResponse:
 async def deleteSession(request: Request, sessionID: str) -> None:
     deleteStorage(sessionID)
 
-#TODO should we still validate sessionID since they now all need to be created via POST /sessions, serverside anyways
-sessionIDRe = re.compile(r"^[0-9a-f]{32}$")
-def validateSessionID(sessionID: str) -> None:
-    if not sessionIDRe.fullmatch(sessionID):
-        raise APIException("Invalid sessionID. Use POST /sessions to create a sessionID.")
-
 # Practically guessing any uuid4 is impossible ( sessionSignature is derived from uuid4 sessionID )
 # Even with 1 billion tries per second it would take vastly longer than the age of the universe.
 @app.get("/debug/{sessionSignature}", response_class=HTMLResponse)
@@ -283,7 +277,6 @@ async def delete_routine(request: Request, routineName: str) -> None:
 @app.get("/do", response_class=HTMLResponse)
 async def routine(request: Request, req: RoutineRequestModel) -> Response:
     if req.sessionID:
-        validateSessionID(req.sessionID)
         request.state.sessionID = req.sessionID 
         useStorage = True
     else:
@@ -431,7 +424,6 @@ async def importFile(request: Request, overwrite: bool = Query(False)) -> None:
 @app.get("/get", response_class=HTMLResponse)
 async def get(request: Request, req: GetRequestModel) -> Response:
     if req.sessionID:
-        validateSessionID(req.sessionID)
         request.state.sessionID = req.sessionID 
         useStorage = True
     else:
