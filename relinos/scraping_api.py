@@ -1299,6 +1299,10 @@ class BrowserManager:
         self._origins: set[str] = set()
 
     async def clearContext(self) -> None: 
+        # removes possible popups, 1 browser just allows for 1 tab
+        tabs = await self.browser.get_opened_tabs()
+        for tab in tabs[1:]: await tab.close()
+
         params = {"origin": "*", "storageTypes": "all"}
         await self.page._execute_command(
             Command(method="Storage.clearDataForOrigin", params=params)
@@ -1371,6 +1375,7 @@ class BrowserManager:
             await self.page.enable_page_events()
             await fixWebRTCLeak(self.page)
             await blockMedia(self.page)
+            await blockPopups(self.page)
 
             self.isOpen = True
             self.hideWindow() 
@@ -1620,6 +1625,65 @@ async def fixWebRTCLeak(tab: Tab) -> None:
     params = {"source": script}
 
     # NOTE disable_page_events clears all added scripts via Page.* and they must be added again
+    await tab._execute_command(
+        Command(method="Page.addScriptToEvaluateOnNewDocument", params=params)
+    )
+    
+async def blockPopups(tab: Tab) -> None:
+    ''' opens popups in current tab instead, is not a definitive solution '''
+    script = """
+        function shouldRedirect(target) {
+            if (!target || ['_self', '_parent', '_top'].includes(target.toLowerCase())) { return false; }
+
+            if (target.toLowerCase() === '_blank') { return true; }
+
+            // By default JS will not popup if target is the name of an iframe
+            return !Array.from(document.querySelectorAll('iframe[name]'))
+            .some(frame => frame.name === target);
+        }
+
+        // links
+        document.addEventListener('click', event => {
+            const link = event.target.closest?.('a[href], area[href]');
+
+            if (link && shouldRedirect(link.target)) {
+                link.target = '_self';
+            }
+        }, true);
+
+        // forms
+        document.addEventListener('submit', event => {
+            const form = event.target;
+            const submitter = event.submitter;
+
+            if (submitter?.hasAttribute('formtarget')) {
+                if (shouldRedirect(submitter.formTarget)) {
+                submitter.formTarget = '_self';
+            }
+            } else if (shouldRedirect(form.target)) {
+                form.target = '_self';
+            }
+        }, true);
+
+        // intercepting window.open
+        window.open = new Proxy(window.open, {
+            apply(target, thisArg, args) {
+                if (shouldRedirect(args[1] || '_blank')) { args[1] = '_self';}
+
+                return Reflect.apply(target, thisArg, args);
+            }
+        });
+
+        // intercepting anyForm.submit
+        HTMLFormElement.prototype.submit = new Proxy(HTMLFormElement.prototype.submit, {
+            apply(target, thisArg, args) {
+                if (shouldRedirect(thisArg.target)) { thisArg.target = '_self'; }
+
+                return Reflect.apply(target, thisArg, args);
+            }
+        });
+    """
+    params = {"source": script}
     await tab._execute_command(
         Command(method="Page.addScriptToEvaluateOnNewDocument", params=params)
     )
@@ -1938,7 +2002,7 @@ async def get(url: str, render: bool = False, actions: list[Action] = [], debug:
         async with AsyncSession() as s:
             #TODO always assumes localhost for now, does not try publicAddress or privateAddress of BrowserInfo
             resp = await s.get(
-                f"localhost:{browserWorkerPort}/browser",
+                f"127.0.0.1:{browserWorkerPort}/browser",
                 json={
                     "browserNr": browser.browserNr, "proxy": proxy, "sessionID": sessionID, "useStorage": useStorage, "clearContext": prevSignatureStr == "", 
                     "debug": debug, "url": url, "actions": [[a.typ, a.v0, a.v1] for a in actions]
