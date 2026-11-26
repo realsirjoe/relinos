@@ -201,6 +201,7 @@ actionSleep =            "actionSleep"
 actionClick =            "actionClick"
 actionType =             "actionType"
 actionKeyboardEnter =    "actionKeyboardEnter"
+actionScroll =           "actionScroll"
 actionSelect =           "actionSelect"
 actionWaitForAndSelect = "actionWaitForAndSelect"
 actionFilterText =       "actionFilterText"
@@ -1168,7 +1169,23 @@ async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime
             elif action.typ == actionExecuteScript:
                 debugMsg = f"{iS} Execute javascript"
                 logger.debug(debugMsg)
-                await browser.page.execute_script(action.v0)
+                await browser.page.execute_script(action.v0, await_promise=True)
+            elif action.typ == actionScroll:
+                debugMsg = f"{iS} Scroll page"
+                logger.debug(debugMsg)
+                maxViewHeights = 20
+                # scrolls by this many view heights
+                viewHeights = 1
+                if action.v0 != "": viewHeights = float(action.v0)
+                if viewHeights <= 0 or viewHeights > maxViewHeights:
+                    raise APIException(f"Invalid scroll viewHeights of {viewHeights} must be between 0 and {maxViewHeights}")
+
+                await browser.page.execute_script("""
+                    new Promise(resolve => {
+                        let i = 0, start = window.scrollY, height = window.innerHeight, timer = setInterval(() => {
+                            window.scrollTo(0, start + height * ++i / 100); if (i >= """ + str(int(viewHeights*100)) + """) { clearInterval(timer); resolve(); }
+                        }, 4);
+                })""", await_promise=True)
             elif action.typ == actionFillOTP:
                 debugMsg = f"{iS} Finding and filling otp"
                 logger.debug(debugMsg)

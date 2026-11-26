@@ -160,21 +160,22 @@ You can perform browser interactions, such as clicking or typing, through the `a
 `actionClick` and `actionType` interact with the current selected element see actionSelect and actionFilter*
 
 
-|Action                 |Param 1        |Param 2             |
-|-----------------------|---------------|--------------------|
-|actionSleep            |nr of seconds  |-                   |
-|actionClick            |-              |-                   |
-|actionType             |text           |-                   |
-|actionKeyboardEnter    |-              |-                   |
-|actionSelect           |xpath          |-                   |
-|actionWaitForAndSelect |xpath          |max seconds to wait |
-|actionFilterText       |text to contain|-                   |
-|actionFilterAttribute  |attribute name | attribute value    |
-|actionFilterIndex      |index          |-                   |
-|actionExecuteScript    |javascript     |-                   |
-|actionGoTo             |url            |-                   |
-|actionFillOTP          |otp email      |otp email password  |
-|actionFillTOTP         |totp uri       |-                   |
+|Action                 |Param 1           |Param 2             |
+|-----------------------|------------------|--------------------|
+|actionSleep            |nr of seconds     |-                   |
+|actionClick            |-                 |-                   |
+|actionType             |text              |-                   |
+|actionKeyboardEnter    |-                 |-                   |
+|actionScroll           |nr of view heights|-                   |
+|actionSelect           |xpath             |-                   |
+|actionWaitForAndSelect |xpath             |max seconds to wait |
+|actionFilterText       |text to contain   |-                   |
+|actionFilterAttribute  |attribute name    | attribute value    |
+|actionFilterIndex      |index             |-                   |
+|actionExecuteScript    |javascript        |-                   |
+|actionGoTo             |url               |-                   |
+|actionFillOTP          |otp email         |otp email password  |
+|actionFillTOTP         |totp uri          |-                   |
 
 
 This example searches a site
