@@ -17,7 +17,7 @@ import sqlite3
 from datetime import datetime
 from functools import partial
 import platform
-from cryptography.fernet import Fernet
+from contextlib import closing
 
 from pydoll.utils import validate_browser_paths
 from pydoll.constants import PageLoadState
@@ -33,6 +33,7 @@ from pydoll.elements.web_element import WebElement
 from pydoll.connection.connection_handler import ConnectionHandler
 from pydoll.protocol.page.events import PageEvent
 
+from cryptography.fernet import Fernet
 from curl_cffi import requests
 from curl_cffi.requests import AsyncSession
 import requests as requestsStd
@@ -543,7 +544,7 @@ class Routine:
 
 def createExtractionTable() -> None:
     ''' is idempotent '''
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS extractions (
                 id TEXT NOT NULL PRIMARY KEY,
@@ -613,7 +614,7 @@ def addExtraction(extractionMeta: ExtractionMeta, filename: str, fileData: str =
 
             os.replace(str(tmpFolderPath), str(folder2Path))
 
-        with sqlite3.connect(dbPath) as conn:
+        with closing(sqlite3.connect(dbPath)) as conn, conn:
             conn.execute(
             """
             INSERT INTO extractions
@@ -651,7 +652,7 @@ def deleteExtraction(name: str) -> None:
         if folderPath.exists(): shutil.rmtree(str(folderPath))
 
         # delete extraction db entry
-        with sqlite3.connect(dbPath) as conn:
+        with closing(sqlite3.connect(dbPath)) as conn, conn:
             conn.execute("DELETE FROM extractions WHERE id = ?", (extractionMeta.id,))
 
 def addExtractionFile(extractionID: str, filename: str, data: str) -> bool:
@@ -670,7 +671,7 @@ def addExtractionFile(extractionID: str, filename: str, data: str) -> bool:
     return True
 
 def editExtractionStats(extractionID: str, keyCount: int, keyCoverage: float, coverageScore: float) -> None:
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.execute(
             """
             UPDATE extractions
@@ -697,7 +698,7 @@ def moveExtractionFile(extractionID: str, oldName: str, newName: str) -> bool:
         return True
 
 def searchExtractions(term: str = "", domain: str = "") -> list[ExtractionMeta]:
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.row_factory = sqlite3.Row
         if domain:
             rows = conn.execute("SELECT * FROM extractions WHERE domain=? AND name LIKE ?", (domain,"%"+term+"%")).fetchall()
@@ -720,7 +721,7 @@ def searchExtractions(term: str = "", domain: str = "") -> list[ExtractionMeta]:
     return results
 
 def getExtraction(name: str, filename: str="", urlName: str="") -> tuple[ExtractionMeta | None, str, bool]:
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.row_factory = sqlite3.Row
         if urlName:
             row = conn.execute("SELECT * from extractions where urlName=?", (urlName,)).fetchone()
@@ -759,7 +760,7 @@ def getExtraction(name: str, filename: str="", urlName: str="") -> tuple[Extract
 
 def createRoutineTable() -> None:
     ''' is idempotent '''
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS routines (
                 id TEXT NOT NULL PRIMARY KEY,
@@ -818,7 +819,7 @@ def addRoutine(routine: Routine, overwrite: bool = False) -> None:
 
             os.replace(str(tmpFolderPath), str(folder2Path))
 
-        with sqlite3.connect(dbPath) as conn:
+        with closing(sqlite3.connect(dbPath)) as conn, conn:
             conn.execute(
                 """
                 INSERT INTO routines (id, name, description)
@@ -847,14 +848,14 @@ def deleteRoutine(name: str) -> None:
         if folderPath.exists(): shutil.rmtree(str(folderPath))
 
         # delete extraction db entry
-        with sqlite3.connect(dbPath) as conn:
+        with closing(sqlite3.connect(dbPath)) as conn, conn:
             conn.execute("DELETE FROM routines WHERE id = ?", (routine.id,))
 
 def getRoutine(name: str, version: int = -1) -> tuple[Routine | None, bool]:
     """
     if version == -1: get highest version nr
     """
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute("SELECT id from routines where name=?", (name,)).fetchone()
         result = dict(row) if row else None
@@ -881,7 +882,7 @@ def getRoutine(name: str, version: int = -1) -> tuple[Routine | None, bool]:
     return deserialize(Routine, json.loads(rawRoutine)), True
 
 def searchRoutines(term: str, limit: int = 100) -> list[dict[str, Any]]:
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.row_factory = sqlite3.Row
         if term:
             rows = conn.execute(
@@ -1625,7 +1626,7 @@ async def fixWebRTCLeak(tab: Tab) -> None:
 
 def createCache() -> None:
     ''' is idempotent '''
-    with sqlite3.connect(cacheDBPath) as conn:
+    with closing(sqlite3.connect(cacheDBPath)) as conn, conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS cache (
                 key TEXT NOT NULL PRIMARY KEY,
@@ -1670,7 +1671,7 @@ def setCache(signatureStr: str, response: str, finalUrl: str, contentType: str, 
     key = sha1(signatureStr)
     sessionSignature = sha1(sessionID)
     isEmpty = 1 if response == "" else 0
-    with sqlite3.connect(cacheDBPath) as conn:
+    with closing(sqlite3.connect(cacheDBPath)) as conn, conn:
         if updateOnly:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute("SELECT 1 FROM cache WHERE key = ?", (key,)).fetchone()
@@ -1706,7 +1707,7 @@ def getCache(signatureStr: str, maxAgeSeconds: int = 0) -> tuple[bool, str, str,
     """
     key = sha1(signatureStr)
     result = None
-    with sqlite3.connect(cacheDBPath) as conn:
+    with closing(sqlite3.connect(cacheDBPath)) as conn, conn:
         conn.row_factory = sqlite3.Row
 
         # +1 avoids returning cached result on maxAgeSeconds=0 when 2nd request arrives within same second as 1st
@@ -1731,7 +1732,7 @@ def getCache(signatureStr: str, maxAgeSeconds: int = 0) -> tuple[bool, str, str,
 
 def clearCache(maxAgeSeconds: int = 0, signatureStr: str = "", sessionID: str = "") -> None:
     ''' cleans up cache older than maxAgeSeconds and other requirements '''
-    with sqlite3.connect(cacheDBPath) as conn:
+    with closing(sqlite3.connect(cacheDBPath)) as conn, conn:
         conn.execute("BEGIN IMMEDIATE")
 
         minCreatedAt = int(time.time()) - maxAgeSeconds + 1
@@ -1976,7 +1977,7 @@ browserStatusIdle = 'idle'
 browserStatusTaken = 'taken'
 
 def createBrowsersTable() -> None:
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.execute("""
         CREATE TABLE IF NOT EXISTS browsers (
             id TEXT NOT NULL,
@@ -2008,7 +2009,7 @@ createBrowsersTable()
 def registerBrowser(workerId: str, browserNr: int, publicAddress: str, privateAddress: str,browserType: str) -> None:
     browserId = workerId + f"{browserNr:04x}"
 
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.execute("""
             INSERT INTO browsers 
                 ( id, workerId, browserNr, publicAddress, privateAddress, browserType, lastHeartbeat, status )
@@ -2021,7 +2022,7 @@ def registerBrowser(workerId: str, browserNr: int, publicAddress: str, privateAd
         """, (browserId, workerId, browserNr, publicAddress, privateAddress, browserType, browserStatusIdle))
 
 def getBrowser() -> BrowserInfo | None:
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         try:
             conn.execute("BEGIN IMMEDIATE")
 
@@ -2045,7 +2046,7 @@ def getBrowser() -> BrowserInfo | None:
         except: conn.rollback(); raise
 
 def returnBrowser(browserId: str) -> None:
-    with sqlite3.connect(dbPath) as conn:
+    with closing(sqlite3.connect(dbPath)) as conn, conn:
         conn.execute(
             "UPDATE browsers SET status = ? WHERE id = ?", (browserStatusIdle, browserId)
         )
