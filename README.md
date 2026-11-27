@@ -79,6 +79,11 @@ Simply copy a JSON file's content and put it in the body of the POST **/import**
 
 <img src="https://www.google.com/s2/favicons?domain=skyscanner.com&sz=64" width="20" height="20" align="absmiddle"> [Skyscanner Flight Search](https://github.com/realsirjoe/relinos_registry/blob/master/skyscanner_com_flight_search)
 
+**Experimental Automations** 
+
+<a href="https://github.com/realsirjoe/relinos_registry/blob/master/x_com"><img src="https://www.google.com/s2/favicons?domain=x.com&sz=64" width="20" height="20" align="absmiddle"></a>
+
+
 You can then for example perform an easy Google search through **/do**
 
 ```bash
