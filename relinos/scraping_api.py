@@ -1180,10 +1180,29 @@ async def ActionLoop(browser: "BrowserManager", actions: list[Action], startTime
                 if viewHeights <= 0 or viewHeights > maxViewHeights:
                     raise APIException(f"Invalid scroll viewHeights of {viewHeights} must be between 0 and {maxViewHeights}")
 
+                maxDuration: float = 10
+                if action.v1 != "": maxDuration = float(action.v1)
+                if maxDuration <= 0:
+                    raise APIException(f"Invalid scroll maxDuration of {maxDuration}, must be > 0")
+
                 await browser.page.execute_script("""
                     new Promise(resolve => {
-                        let i = 0, start = window.scrollY, height = window.innerHeight, timer = setInterval(() => {
-                            window.scrollTo(0, start + height * ++i / 100); if (i >= """ + str(int(viewHeights*100)) + """) { clearInterval(timer); resolve(); }
+                        // locate scrollable element
+                        let el = [...document.querySelectorAll('*')].find(el =>
+                            el.scrollHeight > el.clientHeight &&
+                            ['auto', 'scroll'].includes(getComputedStyle(el).overflowY)
+                        ) || document.scrollingElement;
+
+                        let maxDuration = """ + str(maxDuration) + """*1000;
+                        let startTime = performance.now();
+
+                        let i = 0, start = el.scrollTop, height = el.clientHeight, timer = setInterval(() => {
+                            let target = start + height * (i + 1) / 100;
+                            el.scrollTo(0, target); 
+                            if (el.scrollTop >= target - 1) {
+                                i++;
+                            }
+                            if (i >= """ + str(int(viewHeights*100)) + """ || performance.now() - startTime >= maxDuration) { clearInterval(timer); resolve(); }
                         }, 4);
                 })""", await_promise=True)
             elif action.typ == actionFillOTP:
