@@ -1006,7 +1006,7 @@ def encrypt(sessionID: str, value: str) -> str:
 def decrypt(sessionID: str, value: str) -> str:
     return Fernet(getKey(sessionID)).decrypt(value.encode()).decode()
 
-async def loadStorage(sessionID: str, maxAgeSeconds: int = 3000, browser: "BrowserManager"|None = None, reqSession: AsyncSession|None = None) -> dict[str, str]:
+async def loadStorage(sessionID: str, maxAgeSeconds: int = 86400, browser: "BrowserManager"|None = None, reqSession: AsyncSession|None = None) -> dict[str, str]:
     success, rawStorage, _, _ = getCache(sessionID, maxAgeSeconds)
     if not success:
         raise APIException("Invalid or expired sessionID. Use POST /sessions to create a sessionID.")
